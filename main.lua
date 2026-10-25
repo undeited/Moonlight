@@ -29379,6 +29379,22 @@ end
 			end
 		end
 
+		tbl14.GrabHold = function(arg)
+			local components = tbl14.GetBlobmanComponents()
+
+			if not (components and components.RightWeld) then
+				return
+			end
+
+			components.RightWeld.Enabled = true
+
+			if components.RightOri then
+				components.RightOri.Enabled = true
+			end
+
+			return tbl14.Grab(arg)
+		end
+
 		tbl14.Kill = function(arg)
 			if not parent then
 				return
@@ -30695,6 +30711,8 @@ end
 
 				if blobMethod == "Bring" then
 					fn21("Blob_Bring", tbl14.Bring)
+				elseif blobMethod == "Grab" then
+					fn21("Blob_Grab", tbl14.GrabHold)
 				elseif blobMethod == "Kill" then
 					fn21("Blob_Kill", tbl14.Kill)
 				elseif blobMethod == "Follow" then
@@ -36441,7 +36459,7 @@ Escape Timer: %*]]
 		local v20 = tbl15.Blobman:AddRightGroupbox("Method Settings", "apple")
 
 		v20:AddDropdown("MethodSettingsBlobs", {
-			Values = { "Kick", "Kill", "Bring", "Lock", "Follow", "Remove Gucci" },
+			Values = { "Kick", "Kill", "Bring", "Grab", "Lock", "Follow", "Remove Gucci" },
 			Default = 1,
 			Multi = false,
 			Text = "Blobman Method",
