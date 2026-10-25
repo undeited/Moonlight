@@ -10224,12 +10224,30 @@ do
             end
         end
 
+        local ResizeQueued = false
+
         table.insert(Depbox.Connections, DepboxList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            if not Depbox.Visible then
+            if not Depbox.Visible or ResizeQueued then
                 return
             end
 
-            Depbox:Resize()
+            ResizeQueued = true
+
+            task.defer(function()
+                ResizeQueued = false
+
+                if Depbox.Destroyed or not Depbox.Visible then
+                    return
+                end
+
+                local Height = DepboxList.AbsoluteContentSize.Y / Library.DPIScale
+
+                if math.abs(DepboxContainer.Size.Y.Offset - Height) < 0.5 then
+                    return
+                end
+
+                Depbox:Resize()
+            end)
         end))
 
         function Depbox:SetupDependencies(Dependencies)
