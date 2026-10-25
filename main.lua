@@ -36700,7 +36700,7 @@ Escape Timer: %*]]
 		v21:AddDivider("Fling Settings")
 
 		v21:AddDropdown("FlingMethod", {
-			Values = { "PalletLightBrown", "YouDecoy", "AnvilGray", "GlassBoxGray" },
+			Values = { "PalletLightBrown", "YouDecoy", "AnvilGray", "GlassBoxGray", "BellRig", "ToyAnimalUnicorn", "ToyAnimalBear", "ToyAnimalFrog", "ToyAnimalFrog" },
 			Default = "PalletLightBrown",
 			Multi = false,
 			Text = "Fling Method",
