@@ -37851,7 +37851,7 @@ Escape Timer: %*]]
 			end
 
 			local function detectCheater(player)
-				if tbl12.IsScriptUser(player) then
+				if tbl12.IsScriptUser(player) or tbl7.ImmunePlayers[player] then
 					return nil
 				end
 
@@ -41791,7 +41791,7 @@ Escape Timer: %*]]
 			local tbl16 = {}
 
 			for _, v20 in tbl7.PlayerList, nil, nil do
-				if v20 ~= localPlayer and not tbl12.IsScriptUser(v20) then
+				if v20 ~= localPlayer and not tbl12.IsScriptUser(v20) and not tbl7.ImmunePlayers[v20] then
 					local v21, v22, v23 = tbl12.Char(v20)
 					local fn21, ragdollTouchedHitbox, firePlayerPart, v24, v25
 
