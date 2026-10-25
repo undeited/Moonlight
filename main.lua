@@ -195,32 +195,32 @@ local Toggles = {}
 local Options = {}
 local Tooltips = {}
 
-local BaseURL = "https://raw.githubusercontent.com/undeited/Moonlight/refs/heads/main/"
+local BaseURL = "https://raw.githubusercontent.com/undeited/moonlight/refs/heads/main/"
 local CustomImageManager = {}
 local CustomImageManagerAssets = {
     TransparencyTexture = {
-        Path = "Moonlight/assets/TransparencyTexture.png",
+        Path = "moonlight/assets/TransparencyTexture.png",
         URL = BaseURL .. "assets/TransparencyTexture.png",
 
         Id = nil,
     },
 
     SaturationMap = {
-        Path = "Moonlight/assets/SaturationMap.png",
+        Path = "moonlight/assets/SaturationMap.png",
         URL = BaseURL .. "assets/SaturationMap.png",
 
         Id = nil,
     },
 
     LoadingIcon = {
-        Path = "Moonlight/assets/LoadingIcon.png",
+        Path = "moonlight/assets/LoadingIcon.png",
         URL = BaseURL .. "assets/LoadingIcon.png",
 
         Id = nil,
     },
 
     CheckIcon = {
-        Path = "Moonlight/assets/CheckIcon.png",
+        Path = "moonlight/assets/CheckIcon.png",
         URL = BaseURL .. "assets/CheckIcon.png",
 
         Id = nil,
@@ -260,7 +260,7 @@ do
         end
 
         CustomImageManagerAssets[AssetName] = {
-            Path = string.format("Moonlight/custom_assets/%s", AssetName),
+            Path = string.format("moonlight/custom_assets/%s", AssetName),
             URL = URL,
 
             Id = nil,
@@ -40004,7 +40004,7 @@ Escape Timer: %*]]
 		end
 
 		local v20 = writefile and readfile and isfile and makefolder and isfolder and listfiles and delfile
-		local str5 = "Moonlight/AutoClickerPresets"
+		local str5 = "moonlight/AutoClickerPresets"
 
 		tbl12.LoadACPreset = function(arg)
 			return tbl12.LoadACEditorPose(arg)
@@ -40046,8 +40046,8 @@ Escape Timer: %*]]
 					makefolder("Moonlight")
 				end
 
-				if not isfolder("Moonlight/AutoClickerPresets") then
-					makefolder("Moonlight/AutoClickerPresets")
+				if not isfolder("moonlight/AutoClickerPresets") then
+					makefolder("moonlight/AutoClickerPresets")
 				end
 
 				writefile(str5 .. "/" .. arg .. ".json", HttpService:JSONEncode(arg2))
@@ -40070,11 +40070,11 @@ Escape Timer: %*]]
 					makefolder("Moonlight")
 				end
 
-				if not isfolder("Moonlight/AutoClickerPresets") then
-					makefolder("Moonlight/AutoClickerPresets")
+				if not isfolder("moonlight/AutoClickerPresets") then
+					makefolder("moonlight/AutoClickerPresets")
 				end
 
-				for _, v21 in ipairs(listfiles("Moonlight/AutoClickerPresets")) do
+				for _, v21 in ipairs(listfiles("moonlight/AutoClickerPresets")) do
 					if v21:sub(-5) == ".json" then
 						local match = v21:match("([^/\\]+)%.json$")
 
@@ -42421,7 +42421,7 @@ Rejoined: %rejoinedPlayer%, %listCount%]],
 		"GroupOutline",
 	})
 
-	lib3:SetFolder("Moonlight/FTAP")
+	lib3:SetFolder("moonlight/FTAP")
 	lib3:BuildConfigSection(tbl15.Settings)
 	lib3:LoadAutoloadConfig()
 
@@ -42763,7 +42763,7 @@ local function requireModule(name)
     assert(not loading[name], "Circular module dependency: " .. tostring(name))
     assert(type(sources[name]) == "string", "Missing module: " .. tostring(name))
     loading[name] = true
-    local chunk, message = loadstring(sources[name], "@Moonlight/" .. name)
+    local chunk, message = loadstring(sources[name], "@moonlight/" .. name)
     assert(chunk, message)
     local ok, result = pcall(chunk, requireModule)
     loading[name] = nil
@@ -42785,13 +42785,13 @@ local ok, result = xpcall(function()
             for _, name in ipairs({"Intro", "Library", "ThemeManager", "SaveManager", "Icons", "Main", "Bootstrap"}) do
                 lines[#lines + 1] = string.format("sources[%q] = %q", name, sources[name])
             end
-            lines[#lines + 1] = 'local run, message = loadstring(sources.Bootstrap, "@Moonlight/Bootstrap"); assert(run, message); return run(sources)'
+            lines[#lines + 1] = 'local run, message = loadstring(sources.Bootstrap, "@moonlight/Bootstrap"); assert(run, message); return run(sources)'
             writefile("MoonlightRestored.lua", table.concat(lines, "\n"))
             assert(type(readfile("MoonlightRestored.lua")) == "string")
         end)
         if success then reloadPath = "MoonlightRestored.lua" end
     end
-    local chunk, message = loadstring(sources.Main, "@Moonlight/Main")
+    local chunk, message = loadstring(sources.Main, "@moonlight/Main")
     assert(chunk, message)
     return chunk(requireModule, reloadPath, registerCleanup)
 end, function(message)
@@ -42807,6 +42807,6 @@ if not ok then
 end
 return result
 ]====]
-local run, message = loadstring(sources.Bootstrap, "@Moonlight/Bootstrap")
+local run, message = loadstring(sources.Bootstrap, "@moonlight/Bootstrap")
 assert(run, message)
 return run(sources)
