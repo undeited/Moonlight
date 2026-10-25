@@ -16734,6 +16734,7 @@ do
 							SelectedToysAuraPlayers = {},
 							SelectedSilentAimPlayers = {},
 							AdminImmune = {},
+							MoonlightUsers = {},
 							PlayerDropdowns = {},
 							PlayerList = Players:GetPlayers(),
 							LineTypes = {
@@ -18277,6 +18278,20 @@ do
 							return flag12
 						end
 
+						tbl12.MoonlightTag = "MLN-7f3a91c2e5d8"
+
+						tbl12.RegisterScriptUser = function(player)
+							if typeof(player) == "Instance" and player:IsA("Player") and player ~= localPlayer then
+								tbl7.MoonlightUsers[player] = os.clock()
+							end
+						end
+
+						tbl12.IsScriptUser = function(player)
+							local lastSeen = tbl7.MoonlightUsers[player]
+
+							return lastSeen ~= nil and os.clock() - lastSeen < 90
+						end
+
 						do
 							local obj = setmetatable({}, { __mode = "k" })
 
@@ -18523,7 +18538,7 @@ do
 						end
 
 						tbl12.PacketHandler = function(arg, arg2, arg3)
-							if arg == localPlayer then
+							if arg == localPlayer or tbl12.IsScriptUser(arg) then
 								return
 							end
 
@@ -18596,7 +18611,7 @@ do
 					end
 
 					tbl12.LineLagHandler = function(arg, lastPart, arg2)
-						if typeof(lastPart) ~= "Instance" or typeof(arg2) ~= "CFrame" or arg == localPlayer then
+						if typeof(lastPart) ~= "Instance" or typeof(arg2) ~= "CFrame" or arg == localPlayer or tbl12.IsScriptUser(arg) then
 							return
 						end
 						local tbl16 = tbl7.LineData[arg]
@@ -33278,7 +33293,34 @@ Escape Timer: %*]]
 
 		if tbl11.Packet then
 			tbl11.Packet.OnClientEvent:Connect(function(arg, arg2)
+				if typeof(arg2) == "string" and arg2:sub(1, #tbl12.MoonlightTag) == tbl12.MoonlightTag then
+					tbl12.RegisterScriptUser(arg)
+					return
+				end
+
 				tbl12.PacketHandler(arg, arg2, "EGL")
+			end)
+
+			local function sendBeacon()
+				local packet = tbl11.Packet
+
+				if packet and not flag11 then
+					pcall(packet.FireServer, packet, tbl12.MoonlightTag)
+				end
+			end
+
+			task.spawn(function()
+				task.wait(2)
+
+				while not flag11 do
+					sendBeacon()
+					task.wait(25)
+				end
+			end)
+
+			Players.PlayerAdded:Connect(function()
+				task.wait(3)
+				sendBeacon()
 			end)
 		end
 
@@ -37733,6 +37775,10 @@ Escape Timer: %*]]
 			end
 
 			local function detectCheater(player)
+				if tbl12.IsScriptUser(player) then
+					return nil
+				end
+
 				local _, rootPart, humanoid = tbl12.Char(player)
 
 				if humanoid then
@@ -41634,7 +41680,7 @@ Escape Timer: %*]]
 			local tbl16 = {}
 
 			for _, v20 in tbl7.PlayerList, nil, nil do
-				if v20 ~= localPlayer then
+				if v20 ~= localPlayer and not tbl12.IsScriptUser(v20) then
 					local v21, v22, v23 = tbl12.Char(v20)
 					local fn21, ragdollTouchedHitbox, firePlayerPart, v24, v25
 
