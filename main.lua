@@ -195,7 +195,7 @@ local Toggles = {}
 local Options = {}
 local Tooltips = {}
 
-local BaseURL = "https://raw.githubusercontent.com/undeited/moonlight/refs/heads/main/"
+local BaseURL = "https://raw.githubusercontent.com/undeited/moonlight/main/"
 local CustomImageManager = {}
 local CustomImageManagerAssets = {
     TransparencyTexture = {
@@ -16204,13 +16204,13 @@ if writefile and isfolder and makefolder and getcustomasset then
 	end
 
 	if not isfile("moonlight-icons/version.txt") then
-		writefile("moonlight-icons/version.txt", "2026-09-01T03:49:17.713242330+00:00")
+		writefile("moonlight-icons/version.txt", "v2")
 	end
 
-	local ShouldUpdate = readfile("moonlight-icons/version.txt") ~= "2026-09-01T03:49:17.713242330+00:00"
+	local ShouldUpdate = readfile("moonlight-icons/version.txt") ~= "v2"
 
 	if ShouldUpdate then
-		writefile("moonlight-icons/version.txt", "2026-09-01T03:49:17.713242330+00:00")
+		writefile("moonlight-icons/version.txt", "v2")
 	end
 
 	for spritesheet = 1, 2 do
@@ -16218,12 +16218,17 @@ if writefile and isfolder and makefolder and getcustomasset then
 			continue
 		end
 
-		writefile(
-			`moonlight-icons/{spritesheet}.png`,
-			game:HttpGet(
+		local success, result = pcall(function()
+			return game:HttpGet(
 				`https://raw.githubusercontent.com/undeited/moonlight/main/spritesheets/{spritesheet}.png`
 			)
-		)
+		end)
+		
+		if success and type(result) == "string" and result ~= "" and not result:find("404: Not Found", 1, true) then
+			writefile(`moonlight-icons/{spritesheet}.png`, result)
+		else
+			IS_GETCUSTOMASSET_BROKEN = true
+		end
 	end
 
 	local Success, _Error = pcall(function()
