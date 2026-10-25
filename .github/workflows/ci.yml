@@ -9,15 +9,25 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: taiki-e/install-action@v2
+      - name: Install stylua
+        uses: taiki-e/install-action@v2
         with:
-          tool: stylua,selene
+          tool: stylua@2.6.0
+
+      - name: Install selene
+        uses: taiki-e/install-action@v2
+        with:
+          tool: selene@0.31.0
 
       - name: Format check
         run: stylua --check .
@@ -34,12 +44,13 @@ jobs:
       - name: Package
         run: |
           mkdir -p dist
-          zip -r "dist/PACKAGE_NAME-${GITHUB_SHA::7}.zip" . \
-            -x ".git/*" ".github/*" "dist/*"
+          zip -r "dist/moonlight-${GITHUB_SHA::7}.zip" . \
+            -x ".git/*" ".github/*" "dist/*" \
+               "selene.toml" "stylua.toml" "*.md"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: PACKAGE_NAME
+          name: moonlight
           path: dist/*.zip
 
   release:
@@ -49,7 +60,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: PACKAGE_NAME
+          name: moonlight
           path: dist
 
       - uses: softprops/action-gh-release@v2
