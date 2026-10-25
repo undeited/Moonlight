@@ -18321,7 +18321,7 @@ do
 							local flag12 = tbl7.AdminImmune[arg] == true
 
 							if not flag12 then
-								flag12 = arg2 == true and tbl8.WhitelistedBypass and tbl7.Whitelisted[arg] == true
+								flag12 = arg2 == true and ((tbl8.WhitelistedBypass and tbl7.Whitelisted[arg] == true) or tbl7.ImmunePlayers[arg] == true)
 							end
 
 							return flag12
@@ -42004,7 +42004,13 @@ Escape Timer: %*]]
 
 	do
 		local Immunity = tbl15.Lists:AddRightGroupbox("Immunity", "shield-user")
-		tbl12.CreatePlayerDropdown(Immunity, "Immunity", tbl7.ImmunePlayers)
+		local immunityDropdown = tbl12.CreatePlayerDropdown(Immunity, "Immunity", tbl7.ImmunePlayers)
+
+		immunityDropdown:OnChanged(function()
+			if tbl8.SilentAim then
+				tbl12.RefreshSilentAim()
+			end
+		end)
 		Immunity:AddDivider("Modes")
 
 		Immunity:AddToggle("ImmunityAGToggle", {
