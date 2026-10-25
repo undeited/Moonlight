@@ -37803,20 +37803,47 @@ Escape Timer: %*]]
 			local cheaterEntries = {}
 			local lastScan = 0
 
-			local function connectedSticky(part)
+			local cheaterCandidates = {}
+			local characterSeen = setmetatable({}, { __mode = "k" })
+
+			local function weldedSticky(part, character)
 				if typeof(part) ~= "Instance" or not part.Parent then
 					return false
 				end
 
-				local ok, connected = pcall(part.GetConnectedParts, part)
+				local ok, joints = pcall(part.GetJoints, part)
 
 				if not ok then
 					return false
 				end
 
-				for _, connectedPart in ipairs(connected) do
-					if connectedPart.Name == "StickyPart" then
-						return true
+				for _, joint in ipairs(joints) do
+					if joint:IsA("WeldConstraint") or joint:IsA("Weld") or joint:IsA("ManualWeld") then
+						local other = joint.Part0 == part and joint.Part1 or joint.Part0
+
+						if joint.Enabled and other and other.Name == "StickyPart" and not other:IsDescendantOf(character) then
+							return true
+						end
+					end
+				end
+
+				return false
+			end
+
+			local function legitSeat(seatPart, character)
+				local seatWeld = seatPart:FindFirstChild("SeatWeld")
+
+				if seatWeld and seatWeld.Enabled then
+					return true
+				end
+
+				for _, child in ipairs(seatPart:GetChildren()) do
+					if child:IsA("JointInstance") or child:IsA("WeldConstraint") then
+						local part0, part1 = child.Part0, child.Part1
+
+						if child.Enabled and ((part0 and part0:IsDescendantOf(character)) or (part1 and part1:IsDescendantOf(character))) then
+							return true
+						end
 					end
 				end
 
@@ -37828,21 +37855,29 @@ Escape Timer: %*]]
 					return nil
 				end
 
-				local _, rootPart, humanoid = tbl12.Char(player)
+				local character, rootPart, humanoid = tbl12.Char(player)
 
-				if humanoid then
-					local seatPart = humanoid.SeatPart
-
-					if seatPart then
-						local seatWeld = seatPart:FindFirstChild("SeatWeld")
-
-						if not seatWeld or not seatWeld.Enabled then
-							return "Has Gucci"
-						end
-					end
+				if not character or not character.Parent or not rootPart or not humanoid or humanoid.Health <= 0 then
+					return nil
 				end
 
-				if rootPart and (connectedSticky(rootPart) or connectedSticky(rootPart:FindFirstChild("RagdollTouchedHitbox")) or connectedSticky(rootPart:FindFirstChild("FirePlayerPart"))) then
+				local now3 = os.clock()
+
+				if not characterSeen[character] then
+					characterSeen[character] = now3
+				end
+
+				if now3 - characterSeen[character] < 3 then
+					return nil
+				end
+
+				local seatPart = humanoid.SeatPart
+
+				if seatPart and seatPart.Parent and humanoid.Sit and not legitSeat(seatPart, character) then
+					return "Has Gucci"
+				end
+
+				if weldedSticky(rootPart, character) or weldedSticky(rootPart:FindFirstChild("RagdollTouchedHitbox"), character) or weldedSticky(rootPart:FindFirstChild("FirePlayerPart"), character) then
 					return "Shuriken in HRP"
 				end
 
@@ -37907,23 +37942,42 @@ Escape Timer: %*]]
 			end
 
 			local function scanCheaters()
+				local now3 = os.clock()
+
 				for _, player in ipairs(Players:GetPlayers()) do
 					if player ~= localPlayer then
 						local reason = detectCheater(player)
 						local entry = cheaterEntries[player]
+						local candidate = cheaterCandidates[player]
 
 						if entry and (entry.Character ~= player.Character or not entry.Character.Parent) then
 							clearCheaterEntry(player)
 							entry = nil
+							candidate = nil
+							cheaterCandidates[player] = nil
 						end
 
 						if reason then
 							local character = player.Character
 
-							if entry then
-								entry.Label.Text = cheaterText(player, reason)
-							elseif character then
-								createCheaterEntry(player, character, reason)
+							if not candidate or candidate.Reason ~= reason or candidate.Character ~= character then
+								candidate = { Reason = reason, Since = now3, LastSeen = now3, Character = character }
+								cheaterCandidates[player] = candidate
+							else
+								candidate.LastSeen = now3
+							end
+
+							if now3 - candidate.Since >= 2 then
+								if entry then
+									entry.Label.Text = cheaterText(player, reason)
+								elseif character then
+									createCheaterEntry(player, character, reason)
+								end
+							end
+						elseif candidate then
+							if not entry or now3 - candidate.LastSeen >= 1 then
+								cheaterCandidates[player] = nil
+								clearCheaterEntry(player)
 							end
 						elseif entry then
 							clearCheaterEntry(player)
@@ -37934,6 +37988,12 @@ Escape Timer: %*]]
 				for player in pairs(cheaterEntries) do
 					if player.Parent ~= Players then
 						clearCheaterEntry(player)
+					end
+				end
+
+				for player in pairs(cheaterCandidates) do
+					if player.Parent ~= Players then
+						cheaterCandidates[player] = nil
 					end
 				end
 			end
@@ -37969,6 +38029,8 @@ Escape Timer: %*]]
 						for player in pairs(cheaterEntries) do
 							clearCheaterEntry(player)
 						end
+
+						table.clear(cheaterCandidates)
 					end
 				end,
 			})
