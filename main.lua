@@ -16607,7 +16607,7 @@ do
 							LoopTpLocation = false,
 							AutoSeatBlobman = false,
 							FreezeBlobman = false,
-							NetworkOwnerInKick = false,
+							NetworkOwnerInKick = true,
 							DeleteShurInBlobK = true,
 							AntiGrab = false,
 							GucciAntiGrab = false,
@@ -16636,7 +16636,7 @@ do
 							RagdollInNK = true,
 							RagdollInRG = false,
 							DeleteShurInNK = true,
-							EKI = false,
+							EKI = typeof(sethiddenproperty) == "function",
 							AutoHouse = false,
 							Invisibility = false,
 							GradientLine = false,
@@ -16732,7 +16732,7 @@ do
 							UnstickGrab = "All Toys Near",
 							BlobMethod = "Kick",
 							BKMethod = 1,
-							NKOffset = 15,
+							NKOffset = 28,
 							NKDelayMode = "Normal",
 							KickServerMethod = "Circle + Lag",
 							KickFlags = 0,
@@ -29379,22 +29379,6 @@ end
 			end
 		end
 
-		tbl14.GrabHold = function(arg)
-			local components = tbl14.GetBlobmanComponents()
-
-			if not (components and components.RightWeld) then
-				return
-			end
-
-			components.RightWeld.Enabled = true
-
-			if components.RightOri then
-				components.RightOri.Enabled = true
-			end
-
-			return tbl14.Grab(arg)
-		end
-
 		tbl14.Kill = function(arg)
 			if not parent then
 				return
@@ -30711,8 +30695,6 @@ end
 
 				if blobMethod == "Bring" then
 					fn21("Blob_Bring", tbl14.Bring)
-				elseif blobMethod == "Grab" then
-					fn21("Blob_Grab", tbl14.GrabHold)
 				elseif blobMethod == "Kill" then
 					fn21("Blob_Kill", tbl14.Kill)
 				elseif blobMethod == "Follow" then
@@ -36337,7 +36319,7 @@ Escape Timer: %*]]
 
 		v21:AddSlider("HeightNK", {
 			Text = "Kick Height",
-			Default = 15,
+			Default = 28,
 			Min = 0,
 			Max = 28,
 			Compact = true,
@@ -36459,7 +36441,7 @@ Escape Timer: %*]]
 		local v20 = tbl15.Blobman:AddRightGroupbox("Method Settings", "apple")
 
 		v20:AddDropdown("MethodSettingsBlobs", {
-			Values = { "Kick", "Kill", "Bring", "Grab", "Lock", "Follow", "Remove Gucci" },
+			Values = { "Kick", "Kill", "Bring", "Lock", "Follow", "Remove Gucci" },
 			Default = 1,
 			Multi = false,
 			Text = "Blobman Method",
@@ -36498,7 +36480,7 @@ Escape Timer: %*]]
 		v22:SetupDependencies({ { options.KickSettingBlob, "Grab-Drop" } })
 
 		v22:AddToggle("NetOwninKick", {
-			Default = false,
+			Default = true,
 			Text = "Net Owner Spam",
 			Callback = function(networkOwnerInKick)
 				tbl8.NetworkOwnerInKick = networkOwnerInKick
@@ -36507,7 +36489,7 @@ Escape Timer: %*]]
 
 		v21:AddDivider()
 		v21:AddSlider("BlobKickX", { Text = "X Offset", Default = 0, Min = -5, Max = 5, Compact = true, Rounding = 1 })
-		v21:AddSlider("BlobKickY", { Text = "Y Offset", Default = 25, Min = 10, Max = 40, Compact = true, Rounding = 1 })
+		v21:AddSlider("BlobKickY", { Text = "Y Offset", Default = 40, Min = 10, Max = 40, Compact = true, Rounding = 1 })
 		v21:AddSlider("BlobKickZ", { Text = "Z Offset", Default = 0, Min = -5, Max = 5, Compact = true, Rounding = 1 })
 	end
 
