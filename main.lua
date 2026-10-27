@@ -35554,47 +35554,90 @@ Escape Timer: %*]]
 		Troll:AddDivider()
 
 		local trollToken = 0
+		local trollConnections = {}
+
+		local function restoreTrollState()
+			local character, _, humanoid = tbl12.Char()
+
+			if humanoid and humanoid.PlatformStand then
+				humanoid.PlatformStand = false
+			end
+
+			if character then
+				tbl12.ToggleCollisions(character, true, true)
+			end
+		end
 
 		Troll:AddToggle("FlingAuraTroll", {
 			Text = "Fling Aura Troll",
 			Default = false,
-			Tooltip = "Teleports 15 studs under the selected players and flings everyone within 15 studs, only while the target is touching the ground",
+			Tooltip = "Noclips, freezes in place and stays exactly 15 studs under the selected player, and flings everyone within 15 studs, only while the target is touching the ground",
 			Callback = function(enabled)
 				tbl8.FlingAuraTroll = enabled
 				trollToken += 1
 				local token = trollToken
 
+				for _, connection in ipairs(trollConnections) do
+					connection:Disconnect()
+				end
+
+				table.clear(trollConnections)
+
 				if not enabled then
+					pcall(restoreTrollState)
 					return
 				end
+
+				local function getAnchorRoot()
+					for player in pairs(tbl7.SelectedPlayersTroll) do
+						if player.Parent == Players and not tbl12.IsProtectedPlayer(player) then
+							local _, root, humanoid = tbl12.Char(player)
+
+							if root and humanoid and humanoid.Health > 0 and humanoid.FloorMaterial ~= Enum.Material.Air then
+								return root
+							end
+						end
+					end
+				end
+
+				local function holdUnder()
+					if flag11 or not tbl8.FlingAuraTroll or trollToken ~= token then
+						return
+					end
+
+					local myCharacter, myRoot, myHumanoid = tbl12.Char()
+
+					if not (myCharacter and myRoot and myHumanoid and myHumanoid.Health > 0) then
+						return
+					end
+
+					tbl12.ToggleCollisions(myCharacter, false, true)
+
+					if not myHumanoid.PlatformStand then
+						myHumanoid.PlatformStand = true
+					end
+
+					local anchorRoot = getAnchorRoot()
+
+					if anchorRoot then
+						tbl12.Teleport(myRoot, anchorRoot.Position - Vector3.new(0, 15, 0))
+					else
+						tbl12.ResetVelocity(myRoot)
+					end
+				end
+
+				table.insert(trollConnections, RunService.Stepped:Connect(holdUnder))
+				table.insert(trollConnections, RunService.Heartbeat:Connect(holdUnder))
+				table.insert(trollConnections, RunService.RenderStepped:Connect(holdUnder))
 
 				task.spawn(function()
 					while not flag11 and tbl8.FlingAuraTroll and trollToken == token do
 						pcall(function()
 							local _, myRoot, myHumanoid = tbl12.Char()
 
-							if not (myRoot and myHumanoid and myHumanoid.Health > 0) then
+							if not (myRoot and myHumanoid and myHumanoid.Health > 0 and getAnchorRoot()) then
 								return
 							end
-
-							local anchorRoot = nil
-
-							for player in pairs(tbl7.SelectedPlayersTroll) do
-								if player.Parent == Players and not tbl12.IsProtectedPlayer(player) then
-									local _, root, humanoid = tbl12.Char(player)
-
-									if root and humanoid and humanoid.Health > 0 and humanoid.FloorMaterial ~= Enum.Material.Air then
-										anchorRoot = root
-										break
-									end
-								end
-							end
-
-							if not anchorRoot then
-								return
-							end
-
-							tbl12.Teleport(myRoot, anchorRoot.Position - Vector3.new(0, 15, 0))
 
 							for _, player in ipairs(tbl12.GetTargets(true)) do
 								local _, root, humanoid = tbl12.Char(player)
@@ -35606,6 +35649,15 @@ Escape Timer: %*]]
 						end)
 
 						RunService.Heartbeat:Wait()
+					end
+
+					if trollToken == token then
+						for _, connection in ipairs(trollConnections) do
+							connection:Disconnect()
+						end
+
+						table.clear(trollConnections)
+						pcall(restoreTrollState)
 					end
 				end)
 			end,
