@@ -29273,6 +29273,117 @@ end
 			return ok and #tbl17 > 0
 		end
 
+		tbl14.GrabServerHeld = {}
+		tbl14.GrabServerConnection = nil
+		tbl14.GrabServerCounter = 0
+
+		tbl14.DropGrabServerEntry = function(player)
+			local entry = tbl14.GrabServerHeld[player]
+
+			if not entry then
+				return
+			end
+
+			tbl14.GrabServerHeld[player] = nil
+
+			for _, object in ipairs(entry.Objects) do
+				if object.Parent then
+					object:Destroy()
+				end
+			end
+		end
+
+		tbl14.ClearGrabServer = function()
+			if tbl14.GrabServerConnection then
+				tbl14.GrabServerConnection:Disconnect()
+				tbl14.GrabServerConnection = nil
+			end
+
+			for player in pairs(tbl14.GrabServerHeld) do
+				tbl14.DropGrabServerEntry(player)
+			end
+		end
+
+		tbl14.StartGrabServerUpdater = function()
+			if tbl14.GrabServerConnection then
+				return
+			end
+
+			tbl14.GrabServerConnection = RunService.Heartbeat:Connect(function()
+				local _, myRoot, myHumanoid = tbl12.Char()
+
+				if flag11 or not (myRoot and myHumanoid and myHumanoid.Health > 0) then
+					return
+				end
+
+				local entries = {}
+
+				for player, entry in pairs(tbl14.GrabServerHeld) do
+					if entry.Root.Parent and entry.Position.Parent then
+						entries[#entries + 1] = entry
+					else
+						tbl14.DropGrabServerEntry(player)
+					end
+				end
+
+				table.sort(entries, function(a, b)
+					return a.Id < b.Id
+				end)
+
+				local count = #entries
+
+				for index, entry in ipairs(entries) do
+					local angle = index / count * math.pi * 2
+					local cframe = myRoot.CFrame * CFrame.Angles(0, angle, 0) * CFrame.new(0, 4, -12)
+					entry.Position.Position = cframe.Position
+					entry.Orientation.CFrame = CFrame.Angles(0, angle, 0)
+				end
+			end)
+		end
+
+		tbl14.GrabServer = function(isActive)
+			local _, myRoot, myHumanoid = tbl12.Char()
+
+			if not (tbl14.GetBlobmanComponents() and myRoot and myHumanoid and myHumanoid.Health > 0) then
+				return false
+			end
+
+			local targets = tbl12.GetTargets(true, tbl7.SelectedPlayersBlob)
+
+			for player in pairs(tbl14.GrabServerHeld) do
+				if not table.find(targets, player) then
+					tbl14.DropGrabServerEntry(player)
+				end
+			end
+
+			tbl14.StartGrabServerUpdater()
+
+			for _, player in ipairs(targets) do
+				if not isActive() then
+					break
+				end
+
+				if not tbl14.GrabServerHeld[player] then
+					local _, root, humanoid = tbl12.Char(player)
+
+					if root and humanoid and humanoid.Health > 0 and not humanoid.SeatPart and tbl14.Release(player) then
+						local alignPosition, alignOrientation = tbl12.CreateAlign(root, true)
+						tbl14.GrabServerCounter += 1
+
+						tbl14.GrabServerHeld[player] = {
+							Id = tbl14.GrabServerCounter,
+							Root = root,
+							Position = alignPosition,
+							Orientation = alignOrientation,
+							Objects = { alignPosition, alignOrientation },
+						}
+					end
+				end
+			end
+
+			return true
+		end
+
 		tbl14.Bring = function(arg)
 			if not parent then
 				return
@@ -30778,8 +30889,17 @@ end
 
 					task.spawn(function()
 						while not flag11 and tbl8[arg3] and tbl10.LoopTokens[arg3] == v22 do
+							if arg5 and arg4 and tbl9.BlobMethod ~= "Grab" and next(tbl14.GrabServerHeld) then
+								pcall(tbl14.ClearGrabServer)
+							end
+
 							if arg5 and arg4 and tbl9.BlobMethod == "Kick" then
 								pcall(tbl14.KickServer)
+								task.wait()
+							elseif arg5 and arg4 and tbl9.BlobMethod == "Grab" then
+								pcall(tbl14.GrabServer, function()
+									return not flag11 and tbl8[arg3] and tbl10.LoopTokens[arg3] == v22
+								end)
 								task.wait()
 							else
 								if flag12 and not arg5 and arg4 and tbl7.TargetMethods.Kick and tbl9.KickServerMethod == "Circle + Lag" then
@@ -30796,6 +30916,10 @@ end
 							end
 
 							task.wait()
+						end
+
+						if arg5 and arg4 and tbl10.LoopTokens[arg3] == v22 then
+							pcall(tbl14.ClearGrabServer)
 						end
 					end)
 				end,
@@ -30820,6 +30944,17 @@ end
 					task.spawn(function()
 						if arg3 and tbl9.BlobMethod == "Kick" then
 							tbl14.KickTargets(tbl12.GetTargets(arg2, arg4), arg2)
+							return
+						end
+
+						if arg3 and arg2 and tbl9.BlobMethod == "Grab" then
+							if next(tbl14.GrabServerHeld) then
+								tbl14.ClearGrabServer()
+							else
+								tbl14.GrabServer(function()
+									return not flag11
+								end)
+							end
 							return
 						end
 
@@ -35423,7 +35558,7 @@ Escape Timer: %*]]
 		Troll:AddToggle("FlingAuraTroll", {
 			Text = "Fling Aura Troll",
 			Default = false,
-			Tooltip = "Teleports under the selected players and flings everyone within 5 studs",
+			Tooltip = "Teleports 15 studs under the selected players and flings everyone within 15 studs",
 			Callback = function(enabled)
 				tbl8.FlingAuraTroll = enabled
 				trollToken += 1
@@ -35456,13 +35591,13 @@ Escape Timer: %*]]
 							end
 
 							if anchorRoot then
-								tbl12.Teleport(myRoot, anchorRoot, CFrame.new(0, -4, 0))
+								tbl12.Teleport(myRoot, anchorRoot.Position - Vector3.new(0, 15, 0))
 							end
 
 							for _, player in ipairs(tbl12.GetTargets(true)) do
 								local _, root, humanoid = tbl12.Char(player)
 
-								if root and humanoid and humanoid.Health > 0 and tbl12.GetMagnitude(myRoot, root) <= 5 and tbl12.SNO(root) then
+								if root and humanoid and humanoid.Health > 0 and tbl12.GetMagnitude(myRoot, root) <= 15 and tbl12.SNO(root) then
 									root.AssemblyLinearVelocity = Vector3.new(math.random(-150, 150), 150, math.random(-150, 150))
 								end
 							end
@@ -41779,6 +41914,7 @@ Rejoined: %rejoinedPlayer%, %listCount%]],
 		pcall(tbl12.SetAntiShurikenLag, false)
 		pcall(tbl12.SetBrokenPartHighlights, false)
 		pcall(tbl12.ClearFling)
+		pcall(tbl14.ClearGrabServer)
 
 		pcall(function()
 			tbl12.DestroyToy(v17:FindFirstChild("RSCMicrowave"))
