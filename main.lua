@@ -30773,7 +30773,7 @@ end
 						while not flag11 and tbl8[arg3] and tbl10.LoopTokens[arg3] == v22 do
 							if arg5 and arg4 and tbl9.BlobMethod == "Kick" then
 								pcall(tbl14.KickServer)
-								task.wait(0.25)
+								task.wait()
 							else
 								if flag12 and not arg5 and arg4 and tbl7.TargetMethods.Kick and tbl9.KickServerMethod == "Circle + Lag" then
 									pcall(tbl12.KickServer, true)
@@ -30788,11 +30788,7 @@ end
 								end
 							end
 
-							if flag12 and not arg5 and arg4 and tbl7.TargetMethods.Kick and tbl9.KickServerMethod == "Circle + Lag" then
-								task.wait(0.25)
-							else
-								task.wait()
-							end
+							task.wait()
 						end
 					end)
 				end,
