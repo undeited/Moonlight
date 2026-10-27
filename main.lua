@@ -8134,35 +8134,36 @@ do
             local LastValidText = ""
             table.insert(Slider.Connections, InputTextBox:GetPropertyChangedSignal("Text"):Connect(function()
                 local Text = InputTextBox.Text
-                local AsNum = tonumber(Text)
 
-                if #tostring(Text) > 0 and not AsNum and Text ~= "-" then
-                    InputTextBox.Text = LastValidText
-                else
-                    if Slider.Rounding == 0 and Text:find("%.") then
-                        InputTextBox.Text = LastValidText
-                        return
-                    end
-
-                    local DecimalPos = Text:find("%.")
-                    if DecimalPos and Slider.Rounding > 0 then
-                        local Decimals = #Text - DecimalPos
-                        if Decimals > Slider.Rounding then
-                            InputTextBox.Text = LastValidText
-                            return
-                        end
-                    end
-
+                if Text == "" then
                     LastValidText = Text
+                    return
+                end
 
-                    if AsNum then
-                        if AsNum > Slider.Max then
-                            InputTextBox.Text = tostring(Slider.Max)
-                        elseif AsNum < Slider.Min then
-                            InputTextBox.Text = tostring(Slider.Min)
-                        end
+                local AllowNegative = Slider.Min < 0
+                local Valid = Text:match("^%-?%d*%.?%d*$") ~= nil
+
+                if Valid and not AllowNegative and Text:sub(1, 1) == "-" then
+                    Valid = false
+                end
+
+                if Valid and Slider.Rounding == 0 and Text:find("%.", 1) then
+                    Valid = false
+                end
+
+                if Valid and Slider.Rounding > 0 then
+                    local DecimalPos = Text:find("%.", 1)
+                    if DecimalPos and #Text - DecimalPos > Slider.Rounding then
+                        Valid = false
                     end
                 end
+
+                if not Valid then
+                    InputTextBox.Text = LastValidText
+                    return
+                end
+
+                LastValidText = Text
             end))
 
             table.insert(Slider.Connections, InputTextBox.FocusLost:Connect(function()
@@ -8171,11 +8172,15 @@ do
 
                 local Num = tonumber(InputTextBox.Text)
                 if not Num then
+                    Slider:Display()
                     return
                 end
 
+                Num = math.clamp(Num, Slider.Min, Slider.Max)
                 Num = Round(Num, Slider.Rounding)
+                Num = math.clamp(Num, Slider.Min, Slider.Max)
                 Slider:SetValue(Num)
+                Slider:Display()
             end))
 
             table.insert(Slider.Connections, InputTextBox.Focused:Connect(function()
