@@ -28956,7 +28956,7 @@ end
 				return
 			end
 			local v22 = tbl14.GetBlobmanComponents()
-			if not (v22.CreatureGrab and v22.RightWeld) then
+			if not (v22 and v22.CreatureGrab and v22.RightWeld) then
 				return
 			end
 			local v23, v24, v25 = tbl12.Char()
@@ -28968,37 +28968,85 @@ end
 			if not (rootAttachment and v28 and v28.Health > 0) or not parent then
 				return
 			end
+			local rightWeld = v22.RightWeld
+			local rightOri = v22.RightOri
+			local timeout = arg2 or 0.7
+
+			local function isHeld()
+				return rightWeld.Attachment0 == rootAttachment
+			end
+
+			local function canContinue()
+				return parent and parent.Parent and v27.Parent and rootAttachment.Parent and v25.Health > 0 and v28.Health > 0
+			end
+
+			local function secure()
+				rightWeld.Enabled = true
+
+				if rightOri then
+					rightOri.Enabled = true
+
+					if rightOri.Attachment0 ~= rootAttachment then
+						rightOri.Attachment0 = rootAttachment
+					end
+				end
+			end
+
+			rightWeld.Enabled = true
+
+			if rightOri then
+				rightOri.Enabled = true
+			end
+
+			if isHeld() then
+				secure()
+				return true
+			end
+
+			if rightWeld.Attachment0 ~= nil and v22.CreatureDrop then
+				v22.CreatureDrop:FireServer(rightWeld)
+				task.wait()
+			end
+
 			local now3 = tick()
 
 			if tbl12.GetMagnitude(v24, v27) > 40 then
 				local cFrame2 = v24.CFrame
+				local oldCameraType = currentCamera.CameraType
 				currentCamera.CameraType = Enum.CameraType.Scriptable
 
-				while true do
-					local flag12 = parent and v27 and v27.Parent and v25.Health > 0 and v28.Health > 0 and rootAttachment and v22.RightWeld.Attachment0 ~= rootAttachment
-
-					if flag12 then
-						flag12 = tick() - now3 < (arg2 or 0.7)
-					end
-
-					if flag12 then
+				pcall(function()
+					while canContinue() and not isHeld() and tick() - now3 < timeout do
 						tbl12.Teleport(v24, tbl12.PredictCFrame(v27) - Vector3.new(0, 15, 0))
 						task.wait()
-						v22.CreatureGrab:FireServer(nil, v27, v22.RightWeld)
-						continue
+						if not canContinue() then
+							break
+						end
+						v22.CreatureGrab:FireServer(nil, v27, rightWeld)
 					end
 
-					break
-				end
+					if isHeld() then
+						secure()
+						task.wait(0.1)
+						secure()
+					end
+				end)
 
 				tbl12.Teleport(v24, cFrame2, CFrame.new(0, 5, 0))
-				currentCamera.CameraType = Enum.CameraType.Custom
+				currentCamera.CameraType = oldCameraType == Enum.CameraType.Scriptable and Enum.CameraType.Custom or oldCameraType
 			else
-				v22.CreatureGrab:FireServer(nil, v27, v22.RightWeld)
-				task.wait(0.1)
+				while canContinue() and not isHeld() and tick() - now3 < timeout do
+					v22.CreatureGrab:FireServer(nil, v27, rightWeld)
+					task.wait(0.05)
+				end
+
+				if isHeld() then
+					secure()
+				end
 			end
 
-			if v22.RightWeld and v22.RightWeld.Attachment0 == rootAttachment then
+			if isHeld() then
+				secure()
 				return true
 			end
 		end
