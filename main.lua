@@ -16522,6 +16522,8 @@ do
 							LagServer = false,
 							PacketLagServer = false,
 							AutoExplodeTarget = false,
+							AutoExplodeServer = false,
+							FlingAuraTroll = false,
 							CoconutForms = false,
 							BreakAllHoldables = false,
 							HighlightBrokenParts = false,
@@ -16619,6 +16621,7 @@ do
 							SelectedPlayers = {},
 							SelectedPlayersBlob = {},
 							SelectedPlayersExp = {},
+							SelectedPlayersTroll = {},
 							SelectedPlayersAC = {},
 							SelectedPlayersEffect = {},
 							SelectedTeleportPlayers = {},
@@ -25110,7 +25113,7 @@ end
 
 						for i = 1, arg3 do
 							if arg4 then
-								if flag11 or not tbl8.AutoExplodeTarget then
+								if flag11 or not (tbl8.AutoExplodeTarget or tbl8.AutoExplodeServer) then
 									break
 								end
 
@@ -25165,7 +25168,7 @@ end
 							local partHitDetector, wedge
 							arg2 = toyTypes[v23] or lastMethod
 
-							if arg4 and (flag11 or not tbl8.AutoExplodeTarget) then
+							if arg4 and (flag11 or not (tbl8.AutoExplodeTarget or tbl8.AutoExplodeServer)) then
 								tbl12.DestroyToy(v23)
 								continue
 							end
@@ -28677,7 +28680,7 @@ end
 
 			tbl14 = {
 				GetBlobmanComponents = function()
-					if not parent then
+					if not parent or not parent.Parent then
 						return
 					end
 					local blobmanSeatAndOwnerScript = parent:FindFirstChild("BlobmanSeatAndOwnerScript")
@@ -28793,7 +28796,7 @@ end
 				return
 			end
 			local v22 = tbl14.GetBlobmanComponents()
-			if not (v22 and v22.CreatureGrab and v22.RightWeld) then
+			if not (v22 and v22.CreatureGrab and v22.RightWeld and v22.RightDetector) then
 				return
 			end
 			local v23, v24, v25 = tbl12.Char()
@@ -28859,7 +28862,7 @@ end
 						if not canContinue() then
 							break
 						end
-						v22.CreatureGrab:FireServer(nil, v27, rightWeld)
+						v22.CreatureGrab:FireServer(v22.RightDetector, v27, rightWeld)
 					end
 
 					if isHeld() then
@@ -28873,7 +28876,7 @@ end
 				currentCamera.CameraType = oldCameraType == Enum.CameraType.Scriptable and Enum.CameraType.Custom or oldCameraType
 			else
 				while canContinue() and not isHeld() and tick() - now3 < timeout do
-					v22.CreatureGrab:FireServer(nil, v27, rightWeld)
+					v22.CreatureGrab:FireServer(v22.RightDetector, v27, rightWeld)
 					task.wait(0.05)
 				end
 
@@ -28893,7 +28896,7 @@ end
 				return
 			end
 			local v22 = tbl14.GetBlobmanComponents()
-			if not (v22.CreatureGrab and v22.CreatureRelease and v22.RightWeld) then
+			if not (v22 and v22.CreatureGrab and v22.CreatureRelease and v22.RightWeld and v22.RightDetector) then
 				return
 			end
 			local v23, v24, v25 = tbl12.Char()
@@ -28968,7 +28971,7 @@ end
 							end
 
 							task.wait(0.011111111111111112)
-							v22.CreatureGrab:FireServer(nil, v27, v22.RightWeld)
+							v22.CreatureGrab:FireServer(v22.RightDetector, v27, v22.RightWeld)
 							task.wait(0.011111111111111112)
 							v22.CreatureRelease:FireServer(v22.RightWeld)
 							continue
@@ -29000,7 +29003,7 @@ end
 		tbl14.KickTargets = function(arg, arg2)
 			local v22 = tbl14.GetBlobmanComponents()
 			local v23, v24, v25 = tbl12.Char()
-			if not (v22 and v22.CreatureGrab and v22.CreatureDrop and v22.RightWeld and v24 and v25 and v25.Health > 0) then
+			if not (v22 and v22.CreatureGrab and v22.CreatureDrop and v22.RightWeld and v22.RightDetector and v24 and v25 and v25.Health > 0) then
 				return
 			end
 			local candidates = {}
@@ -29086,7 +29089,7 @@ end
 					if v26.Root.Parent then
 						tbl12.Grab(v26.Root)
 						tbl12.RNO(v26.Root)
-						v22.CreatureGrab:FireServer(nil, v26.Root, v22.RightWeld)
+						v22.CreatureGrab:FireServer(v22.RightDetector, v26.Root, v22.RightWeld)
 
 						if tbl8.DeleteShurInBlobK then
 							task.spawn(tbl12.RemoveSticky, v26.Character)
@@ -29096,7 +29099,7 @@ end
 					end
 				end
 
-				v22.CreatureGrab:FireServer(nil, v24, v22.RightWeld)
+				v22.CreatureGrab:FireServer(v22.RightDetector, v24, v22.RightWeld)
 
 				local n36 = os.clock() + 2
 
@@ -29363,7 +29366,7 @@ end
 				return
 			end
 			local v22 = tbl14.GetBlobmanComponents()
-			if not v22.RightWeld then
+			if not (v22 and v22.RightWeld) then
 				return
 			end
 			local v23, v24, v25 = tbl12.Char()
@@ -29436,7 +29439,7 @@ end
 				return
 			end
 			local v28 = tbl14.GetBlobmanComponents()
-			if not (v28.CreatureGrab and v28.CreatureDrop and v28.CreatureRelease and v28.RightWeld and v28.RightOri) then
+			if not (v28 and v28.CreatureGrab and v28.CreatureDrop and v28.CreatureRelease and v28.RightWeld and v28.RightOri and v28.RightDetector) then
 				return
 			end
 			v28.RightWeld.Enabled = false
@@ -29484,7 +29487,7 @@ end
 					end
 
 					if tbl9.BKMethod == 1 then
-						v28.CreatureGrab:FireServer(nil, v26, v28.RightWeld)
+						v28.CreatureGrab:FireServer(v28.RightDetector, v26, v28.RightWeld)
 						task.wait()
 						v28.CreatureDrop:FireServer(v28.RightWeld)
 						task.wait()
@@ -29494,7 +29497,7 @@ end
 							tbl12.RNO(v26)
 						end
 					else
-						v28.CreatureGrab:FireServer(nil, v26, v28.RightWeld)
+						v28.CreatureGrab:FireServer(v28.RightDetector, v26, v28.RightWeld)
 						task.wait()
 						v28.CreatureRelease:FireServer(v28.RightWeld)
 						tbl12.Grab(v26)
@@ -29525,10 +29528,14 @@ end
 			if not v26 or v26.Health == 0 or not v25 then
 				return false
 			end
-			local blobmanSeatAndOwnerScript = parent.BlobmanSeatAndOwnerScript
-			local creatureGrab = blobmanSeatAndOwnerScript.CreatureGrab
-			local creatureRelease = blobmanSeatAndOwnerScript.CreatureRelease
-			local leftWeld = parent.LeftDetector.LeftWeld
+			local components = tbl14.GetBlobmanComponents()
+			if not (components and components.CreatureGrab and components.CreatureRelease and components.LeftWeld and components.LeftDetector) then
+				return false
+			end
+			local creatureGrab = components.CreatureGrab
+			local creatureRelease = components.CreatureRelease
+			local leftWeld = components.LeftWeld
+			local leftDetector = components.LeftDetector
 
 			if (not v25.Massless or v26.Sit and v26.SeatPart) and tbl14.Release(arg) then
 				tbl12.Teleport(v25, v23, CFrame.new(0, 0, -5))
@@ -29544,7 +29551,7 @@ end
 				while arg.Parent and v25.Parent and v26.Health ~= 0 and tbl8[arg2] and parent and tbl9.BlobMethod == "Lock" and tbl12.GetMagnitude(v23, v25) < 45 do
 					bodyPosition.Position = (v23.CFrame * CFrame.new(0, 0, -5)).Position
 					tbl12.ResetVelocity(v25)
-					creatureGrab:FireServer(nil, v25, leftWeld)
+					creatureGrab:FireServer(leftDetector, v25, leftWeld)
 					task.wait()
 					creatureRelease:FireServer(leftWeld)
 					task.wait()
@@ -30937,13 +30944,24 @@ end
 					connection = nil
 				end
 
-				connection = v24.Seated:Connect(function(arg, arg2)
-					if arg and arg2 and arg2.Parent and arg2.Parent.Name == "CreatureBlobman" then
-						parent = arg2.Parent
+				if not v24 then
+					parent = nil
+					return
+				end
+
+				local function updateSeat(seatPart)
+					if seatPart and seatPart.Parent and seatPart.Parent.Name == "CreatureBlobman" then
+						parent = seatPart.Parent
 					else
 						parent = nil
 					end
+				end
+
+				connection = v24.Seated:Connect(function(active, seatPart)
+					updateSeat(active and seatPart or nil)
 				end)
+
+				updateSeat(v24.SeatPart)
 			end
 
 			fn21()
@@ -31185,9 +31203,9 @@ end
 												v26.CFrame = v26.CFrame + Vector3.new(0, 15, 0)
 												tbl12.RNO(v26)
 												task.wait()
-												creatureGrab:FireServer(nil, v26, rightWeld)
+												creatureGrab:FireServer(parent.RightDetector, v26, rightWeld)
 												task.wait()
-												creatureGrab:FireServer(nil, v23, rightWeld)
+												creatureGrab:FireServer(parent.RightDetector, v23, rightWeld)
 											end
 										end
 									end
@@ -31198,7 +31216,7 @@ end
 										local rightWeld = parent and parent:FindFirstChild("RightDetector") and parent.RightDetector:FindFirstChild("RightWeld")
 
 										if creatureGrab and creatureRelease and rightWeld then
-											creatureGrab:FireServer(nil, v26, rightWeld)
+											creatureGrab:FireServer(parent.RightDetector, v26, rightWeld)
 											task.wait()
 											creatureRelease:FireServer(rightWeld)
 											task.wait()
@@ -31215,7 +31233,7 @@ end
 										local rightWeld = parent and parent:FindFirstChild("RightDetector") and parent.RightDetector:FindFirstChild("RightWeld")
 
 										if creatureGrab and creatureDrop and rightWeld then
-											creatureGrab:FireServer(nil, v26, rightWeld)
+											creatureGrab:FireServer(parent.RightDetector, v26, rightWeld)
 											task.wait()
 											creatureDrop:FireServer(rightWeld)
 										end
@@ -33176,15 +33194,19 @@ Escape Timer: %*]]
 					return
 				end
 
-				if not tbl8.AutoExplodeTarget and not tbl12.WaitForRuntimeToggle("AutoExplodeTarget") then
+				if not (tbl8.AutoExplodeTarget or tbl8.AutoExplodeServer) and not tbl12.WaitForRuntimeCondition("AutoExplodeLoop", function()
+					return tbl8.AutoExplodeTarget or tbl8.AutoExplodeServer
+				end) then
 					return
 				end
 
 				if tbl9.ExplosionMethod then
 					if not (inPlot.Value and not inOwnedPlot.Value) then
-						for _, v22 in ipairs(tbl12.GetTargets(false, tbl7.SelectedPlayersExp)) do
-							if not (flag11 or not tbl8.AutoExplodeTarget or not tbl9.ExplosionMethod) then
-								if not (not tbl7.SelectedPlayersExp[v22] or v22.Parent ~= Players) then
+						local serverMode = tbl8.AutoExplodeServer == true
+
+						for _, v22 in ipairs(tbl12.GetTargets(serverMode, tbl7.SelectedPlayersExp)) do
+							if not (flag11 or not (tbl8.AutoExplodeTarget or tbl8.AutoExplodeServer) or not tbl9.ExplosionMethod) then
+								if not (not (serverMode or tbl7.SelectedPlayersExp[v22]) or v22.Parent ~= Players) then
 									local value = v22.InPlot.Value
 
 									if value then
@@ -35392,6 +35414,68 @@ Escape Timer: %*]]
 	end
 
 	do
+		local Troll = tbl15.Combat:AddRightGroupbox("Troll", "skull")
+		tbl12.CreatePlayerDropdown(Troll, "FlingAuraTroll", tbl7.SelectedPlayersTroll)
+		Troll:AddDivider()
+
+		local trollToken = 0
+
+		Troll:AddToggle("FlingAuraTroll", {
+			Text = "Fling Aura Troll",
+			Default = false,
+			Tooltip = "Teleports under the selected players and flings everyone within 5 studs",
+			Callback = function(enabled)
+				tbl8.FlingAuraTroll = enabled
+				trollToken += 1
+				local token = trollToken
+
+				if not enabled then
+					return
+				end
+
+				task.spawn(function()
+					while not flag11 and tbl8.FlingAuraTroll and trollToken == token do
+						pcall(function()
+							local _, myRoot, myHumanoid = tbl12.Char()
+
+							if not (myRoot and myHumanoid and myHumanoid.Health > 0) then
+								return
+							end
+
+							local anchorRoot = nil
+
+							for player in pairs(tbl7.SelectedPlayersTroll) do
+								if player.Parent == Players and not tbl12.IsProtectedPlayer(player) then
+									local _, root, humanoid = tbl12.Char(player)
+
+									if root and humanoid and humanoid.Health > 0 then
+										anchorRoot = root
+										break
+									end
+								end
+							end
+
+							if anchorRoot then
+								tbl12.Teleport(myRoot, anchorRoot, CFrame.new(0, -4, 0))
+							end
+
+							for _, player in ipairs(tbl12.GetTargets(true)) do
+								local _, root, humanoid = tbl12.Char(player)
+
+								if root and humanoid and humanoid.Health > 0 and tbl12.GetMagnitude(myRoot, root) <= 5 and tbl12.SNO(root) then
+									root.AssemblyLinearVelocity = Vector3.new(math.random(-150, 150), 150, math.random(-150, 150))
+								end
+							end
+						end)
+
+						RunService.Heartbeat:Wait()
+					end
+				end)
+			end,
+		})
+	end
+
+	do
 		local v20 = tbl15.Combat:AddLeftGroupbox("Toy Auras", "shapes")
 
 		v20:AddDropdown("TAurasDropdown", {
@@ -36334,15 +36418,23 @@ Escape Timer: %*]]
 	do
 		local Settings = tbl15.Blobman:AddRightGroupbox("Settings", "settings")
 
+		local autoSeatToken = 0
+
 		Settings:AddToggle("AutoSeatBlobman", {
 			Text = "Auto Sit Blobman",
 			Default = false,
 			Callback = function(autoSeatBlobman)
 				tbl8.AutoSeatBlobman = autoSeatBlobman
+				autoSeatToken += 1
+				local token = autoSeatToken
+
+				if not autoSeatBlobman then
+					return
+				end
 
 				task.spawn(function()
-					while tbl8.AutoSeatBlobman and task.wait(0.1) do
-						tbl14.Sit()
+					while not flag11 and tbl8.AutoSeatBlobman and autoSeatToken == token and task.wait(0.1) do
+						pcall(tbl14.Sit)
 					end
 				end)
 			end,
@@ -36928,6 +37020,17 @@ Escape Timer: %*]]
 			Default = false,
 			Callback = function(arg)
 				tbl12.SetRuntimeToggle("AutoExplodeTarget", arg)
+				tbl12.WakeRuntimeGate("AutoExplodeLoop")
+			end,
+		})
+
+		Explosions:AddToggle("AutoExpServer", {
+			Text = "Loop Apply to Server",
+			Default = false,
+			Tooltip = "Keeps exploding all players in the server",
+			Callback = function(arg)
+				tbl12.SetRuntimeToggle("AutoExplodeServer", arg)
+				tbl12.WakeRuntimeGate("AutoExplodeLoop")
 			end,
 		})
 	end
