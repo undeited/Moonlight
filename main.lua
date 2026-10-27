@@ -267,11 +267,11 @@ local Library = {
 
     IsLightTheme = false,
     Scheme = {
-        BackgroundColor = Color3.fromRGB(15, 15, 15),
-        MainColor = Color3.fromRGB(25, 25, 25),
-        AccentColor = Color3.fromRGB(125, 85, 255),
-        OutlineColor = Color3.fromRGB(40, 40, 40),
-        FontColor = Color3.new(1, 1, 1),
+        BackgroundColor = Color3.fromRGB(8, 11, 26),
+        MainColor = Color3.fromRGB(16, 22, 44),
+        AccentColor = Color3.fromRGB(176, 196, 255),
+        OutlineColor = Color3.fromRGB(44, 58, 100),
+        FontColor = Color3.fromRGB(232, 238, 255),
         Font = Font.fromEnum(Enum.Font.Code),
 
         RedColor = Color3.fromRGB(255, 50, 50),
@@ -14909,7 +14909,7 @@ local ThemeManager = {
     Watcher = nil,
 
     Themes = {
-        ["Default"] = { FontColor = "ffffff", MainColor = "191919", AccentColor = "ffff00", BackgroundColor = "0f0f0f", OutlineColor = "464646", FontFace = "Code" },
+        ["Moonlight"] = { FontColor = "e8eeff", MainColor = "10162c", AccentColor = "b0c4ff", BackgroundColor = "080b1a", OutlineColor = "2c3a64", FontFace = "Code" },
         ["Halloween"] = { FontColor = "ffe8cc", MainColor = "1f1209", AccentColor = "ff7a00", BackgroundColor = "120a05", OutlineColor = "5a3414", FontFace = "Code" },
         ["Christmas"] = { FontColor = "ffffff", MainColor = "12261a", AccentColor = "d42426", BackgroundColor = "0b1a10", OutlineColor = "2e6b3a", FontFace = "Code" },
         ["St. Patricks"] = { FontColor = "e8ffe8", MainColor = "0d2415", AccentColor = "3ddc61", BackgroundColor = "07140b", OutlineColor = "1f5c32", FontFace = "Code" },
@@ -14961,7 +14961,7 @@ function ThemeManager:GetCurrentThemeName(): string
         return "Easter"
     end
 
-    return "Default"
+    return "Moonlight"
 end
 
 function ThemeManager:ApplyTheme(ThemeName: string): boolean
@@ -29003,77 +29003,31 @@ end
 			if not (v22 and v22.CreatureGrab and v22.CreatureDrop and v22.RightWeld and v24 and v25 and v25.Health > 0) then
 				return
 			end
-			local tbl16 = {}
-			local tbl17 = {}
-			v22.CreatureDrop:FireServer(v22.RightWeld)
+			local candidates = {}
 
 			for _, v26 in ipairs(arg) do
-				local flag12
+				local v27, v28, v29 = tbl12.Char(v26)
+				local flag12 = v26 ~= localPlayer and v27 and v28 and v29 and v29.Health > 0 and not v29.SeatPart and not (v28.AssemblyRootPart or v28).Massless and not tbl12.IsProtectedPlayer(v26, arg2)
 
-				if arg2 then
-					flag12 = os.clock() - (tbl14.KickServerCooldowns[v26] or -math.huge) < 7
-				else
-					flag12 = arg2
+				if flag12 and arg2 then
+					local cooldown = tbl14.KickServerCooldowns[v26]
+					flag12 = not (cooldown and cooldown.Character == v27 and os.clock() - cooldown.Time < 7)
 				end
 
-				if not flag12 then
-					local v27, v28, v29 = tbl12.Char(v26)
-					local flag13 = v26 ~= localPlayer and not tbl12.IsProtectedPlayer(v26, arg2) and v28 and v29 and v29.Health > 0
-
-					if flag13 then
-						flag13 = not (v28.AssemblyRootPart or v28).Massless
-					end
-
-					if flag13 and not v29.SeatPart and tbl14.Release(v26) then
-						tbl16[#tbl16 + 1] = { Character = v27, Root = v28 }
-
-						if arg2 then
-							tbl14.KickServerCooldowns[v26] = os.clock()
-						end
-					end
+				if flag12 then
+					candidates[#candidates + 1] = v26
 				end
 			end
 
-			if #tbl16 == 0 then
+			if #candidates == 0 then
 				return false
 			end
-			v22.RightWeld.Enabled = false
-
-			for i, v26 in ipairs(tbl16) do
-				local cFrame2 = v24.CFrame * CFrame.Angles(0, i / #tbl16 * 3.1415926535897931 * 2, 0) * CFrame.new(0, 5, -20)
-				v26.CFrame = cFrame2
-				tbl12.Teleport(v26.Root, cFrame2)
-				local v27, v28 = tbl12.CreateAlign(v26.Root, true)
-				local position = cFrame2.Position
-				local cFrame3 = cFrame2 - cFrame2.Position
-				v27.Position = position
-				v28.CFrame = cFrame3
-				local n36 = #tbl17 + 1
-				local n37 = #tbl17 + 2
-				tbl17[n36] = v27
-				tbl17[n37] = v28
-			end
-
-			task.wait(0.35)
-
-			for _, v26 in ipairs(tbl16) do
-				if v26.Root.Parent then
-					tbl12.Grab(v26.Root)
-					tbl12.RNO(v26.Root)
-					v22.CreatureGrab:FireServer(nil, v26.Root, v22.RightWeld)
-
-					if tbl8.DeleteShurInBlobK then
-						task.spawn(tbl12.RemoveSticky, v26.Character)
-					end
-
-					task.wait()
-				end
-			end
-
-			v22.CreatureGrab:FireServer(nil, v24, v22.RightWeld)
+			local tbl16 = {}
+			local tbl17 = {}
+			local welded = false
 
 			local function fn21()
-				if v22.RightWeld.Parent then
+				if welded and v22.RightWeld.Parent then
 					local rightWeld = v22.RightWeld
 					v22.RightWeld.Attachment0 = nil
 					rightWeld.Enabled = true
@@ -29086,25 +29040,87 @@ end
 				end
 			end
 
-			local n36 = os.clock() + 2
+			local ok, result = pcall(function()
+				v22.CreatureDrop:FireServer(v22.RightWeld)
 
-			while true do
-				for _, v26 in ipairs(tbl16) do
-					if v26.Root.Parent then
-						v26.Root.CFrame = v26.CFrame
-						tbl12.ResetVelocity(v26.Root)
+				for _, v26 in ipairs(candidates) do
+					local v27, v28, v29 = tbl12.Char(v26)
+
+					if v27 and v28 and v29 and v29.Health > 0 and not v29.SeatPart then
+						if tbl14.Release(v26) then
+							tbl16[#tbl16 + 1] = { Character = v27, Root = v28 }
+
+							if arg2 then
+								tbl14.KickServerCooldowns[v26] = { Character = v27, Time = os.clock() }
+							end
+						elseif arg2 then
+							tbl14.KickServerCooldowns[v26] = { Character = v27, Time = os.clock() - 5 }
+						end
 					end
 				end
 
-				RunService.Heartbeat:Wait()
-				if not (n36 <= os.clock()) then
-					continue
+				if #tbl16 == 0 then
+					return false
 				end
-				break
-			end
+				welded = true
+				v22.RightWeld.Enabled = false
+
+				for i, v26 in ipairs(tbl16) do
+					local cFrame2 = v24.CFrame * CFrame.Angles(0, i / #tbl16 * 3.1415926535897931 * 2, 0) * CFrame.new(0, 5, -20)
+					v26.CFrame = cFrame2
+					tbl12.Teleport(v26.Root, cFrame2)
+					local v27, v28 = tbl12.CreateAlign(v26.Root, true)
+					local position = cFrame2.Position
+					local cFrame3 = cFrame2 - cFrame2.Position
+					v27.Position = position
+					v28.CFrame = cFrame3
+					local n36 = #tbl17 + 1
+					local n37 = #tbl17 + 2
+					tbl17[n36] = v27
+					tbl17[n37] = v28
+				end
+
+				task.wait(0.35)
+
+				for _, v26 in ipairs(tbl16) do
+					if v26.Root.Parent then
+						tbl12.Grab(v26.Root)
+						tbl12.RNO(v26.Root)
+						v22.CreatureGrab:FireServer(nil, v26.Root, v22.RightWeld)
+
+						if tbl8.DeleteShurInBlobK then
+							task.spawn(tbl12.RemoveSticky, v26.Character)
+						end
+
+						task.wait()
+					end
+				end
+
+				v22.CreatureGrab:FireServer(nil, v24, v22.RightWeld)
+
+				local n36 = os.clock() + 2
+
+				repeat
+					for _, v26 in ipairs(tbl16) do
+						if v26.Root.Parent then
+							v26.Root.CFrame = v26.CFrame
+							tbl12.ResetVelocity(v26.Root)
+						end
+					end
+
+					RunService.Heartbeat:Wait()
+				until n36 <= os.clock()
+
+				return true
+			end)
 
 			fn21()
-			return true
+
+			if ok then
+				return result
+			end
+
+			return false
 		end
 
 		tbl14.Kick = function(arg)
@@ -29131,7 +29147,8 @@ end
 					flag12 = not arg
 
 					if not flag12 then
-						flag12 = now3 - (tbl7.KickServerCooldowns[v22] or -math.huge) >= 15
+						local cooldown = tbl7.KickServerCooldowns[v22]
+						flag12 = not cooldown or cooldown.Character ~= v23 or now3 - cooldown.Time >= 15
 					end
 				end
 
@@ -29178,11 +29195,11 @@ end
 						local v26, v27, v28 = tbl12.Char(v25)
 
 						if v27 and v28 and v28.Health > 0 then
-							if arg then
-								tbl7.KickServerCooldowns[v25] = os.clock()
-							end
-
 							if tbl12.SNO(v27) then
+								if arg then
+									tbl7.KickServerCooldowns[v25] = { Character = v26, Time = os.clock() }
+								end
+
 								local n36 = i / #tbl16 * 3.1415926535897931 * 2
 								local v29 = tbl17
 								local n37 = #tbl17 + 1
@@ -29191,6 +29208,8 @@ end
 								v29[n37] = v27
 								v30[v27] = cframe
 								tbl12.Teleport(v27, tbl18[v27])
+							elseif arg then
+								tbl7.KickServerCooldowns[v25] = { Character = v26, Time = os.clock() - 12 }
 							end
 						end
 
@@ -30753,12 +30772,11 @@ end
 					task.spawn(function()
 						while not flag11 and tbl8[arg3] and tbl10.LoopTokens[arg3] == v22 do
 							if arg5 and arg4 and tbl9.BlobMethod == "Kick" then
-								tbl14.KickServer()
-								task.wait(1)
+								pcall(tbl14.KickServer)
+								task.wait(0.25)
 							else
-
 								if flag12 and not arg5 and arg4 and tbl7.TargetMethods.Kick and tbl9.KickServerMethod == "Circle + Lag" then
-									tbl12.KickServer(true)
+									pcall(tbl12.KickServer, true)
 								end
 
 								for _, v23 in ipairs(tbl12.GetTargets(arg4, arg6)) do
@@ -30771,7 +30789,7 @@ end
 							end
 
 							if flag12 and not arg5 and arg4 and tbl7.TargetMethods.Kick and tbl9.KickServerMethod == "Circle + Lag" then
-								task.wait(10)
+								task.wait(0.25)
 							else
 								task.wait()
 							end
@@ -34276,7 +34294,7 @@ Escape Timer: %*]]
 		end
 		Greetings:AddLabel({ Text = ("%s, <b>%s</b> "):format(greeting, localPlayer.DisplayName), DoesWrap = true })
 		Greetings:AddDivider()
-		Greetings:AddLabel({ Text = "Welcome to <b><font color=\"#fffb00\">Moonlight</font></b>", DoesWrap = true })
+		Greetings:AddLabel({ Text = "Welcome to <b><font color=\"#b0c4ff\">Moonlight</font></b>", DoesWrap = true })
 	end
 
 		do
