@@ -1,6 +1,6 @@
 # Moonlight
 
-A script hub that is for Fling Things and People.
+A script for [Fling Things and People](https://www.roblox.com/games/6961824067/Fling-Things-and-People).
 
 ## Loadstring
 
