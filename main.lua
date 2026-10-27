@@ -35558,7 +35558,7 @@ Escape Timer: %*]]
 		Troll:AddToggle("FlingAuraTroll", {
 			Text = "Fling Aura Troll",
 			Default = false,
-			Tooltip = "Teleports 15 studs under the selected players and flings everyone within 15 studs",
+			Tooltip = "Teleports 15 studs under the selected players and flings everyone within 15 studs, only while the target is touching the ground",
 			Callback = function(enabled)
 				tbl8.FlingAuraTroll = enabled
 				trollToken += 1
@@ -35583,16 +35583,18 @@ Escape Timer: %*]]
 								if player.Parent == Players and not tbl12.IsProtectedPlayer(player) then
 									local _, root, humanoid = tbl12.Char(player)
 
-									if root and humanoid and humanoid.Health > 0 then
+									if root and humanoid and humanoid.Health > 0 and humanoid.FloorMaterial ~= Enum.Material.Air then
 										anchorRoot = root
 										break
 									end
 								end
 							end
 
-							if anchorRoot then
-								tbl12.Teleport(myRoot, anchorRoot.Position - Vector3.new(0, 15, 0))
+							if not anchorRoot then
+								return
 							end
+
+							tbl12.Teleport(myRoot, anchorRoot.Position - Vector3.new(0, 15, 0))
 
 							for _, player in ipairs(tbl12.GetTargets(true)) do
 								local _, root, humanoid = tbl12.Char(player)
