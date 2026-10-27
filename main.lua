@@ -1,167 +1,4 @@
 local sources = {}
-sources.Intro = [====[
-local Intro = {}
-
-function Intro.Play()
-    local gui
-    local watchdog
-    local tweens = {}
-    local closed = false
-
-    local function close()
-        if closed then return end
-        closed = true
-        for _, tween in ipairs(tweens) do
-            pcall(function() tween:Cancel() end)
-        end
-        if gui then pcall(function() gui:Destroy() end) end
-    end
-
-    local ok, message = xpcall(function()
-        local TweenService = game:GetService("TweenService")
-        local Players = game:GetService("Players")
-        gui = Instance.new("ScreenGui")
-        gui.Name = "MoonlightIntro"
-        gui.ResetOnSpawn = false
-        gui.IgnoreGuiInset = true
-        gui.DisplayOrder = 2147483000
-        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        pcall(function() gui.ScreenInsets = Enum.ScreenInsets.None end)
-
-        local protect = protect_gui or protectgui or (syn and syn.protect_gui)
-        if type(protect) == "function" then pcall(protect, gui) end
-        local parented = false
-        local getRoot = gethui or get_hidden_gui
-        if type(getRoot) == "function" then
-            parented = pcall(function()
-                local parent = getRoot()
-                assert(parent, "GUI root unavailable")
-                gui.Parent = parent
-            end)
-        end
-        if not parented then
-            parented = pcall(function() gui.Parent = game:GetService("CoreGui") end)
-        end
-        if not parented then
-            local player = Players.LocalPlayer
-            local parent = player and player:WaitForChild("PlayerGui", 3)
-            assert(parent, "Intro GUI parent unavailable")
-            gui.Parent = parent
-        end
-
-        watchdog = task.delay(20, function()
-            watchdog = nil
-            close()
-        end)
-
-        local shade = Instance.new("Frame")
-        shade.Name = "Shade"
-        shade.Size = UDim2.fromScale(1, 1)
-        shade.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-        shade.BackgroundTransparency = 1
-        shade.BorderSizePixel = 0
-        shade.Active = true
-        shade.Parent = gui
-
-        local center = Instance.new("Frame")
-        center.Name = "Title"
-        center.AnchorPoint = Vector2.new(0.5, 0.5)
-        center.Position = UDim2.new(0.5, 0, 0.5, 18)
-        center.Size = UDim2.new(0.9, 0, 0.2, 0)
-        center.BackgroundTransparency = 1
-        center.Parent = shade
-        local bounds = Instance.new("UISizeConstraint")
-        bounds.MaxSize = Vector2.new(1100, 150)
-        bounds.Parent = center
-
-        local function animate(object, duration, properties)
-            if closed then return end
-            local tween = TweenService:Create(object, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), properties)
-            tweens[#tweens + 1] = tween
-            tween:Play()
-        end
-
-        local function label(name, zindex)
-            local text = Instance.new("TextLabel")
-            text.Name = name
-            text.Size = UDim2.fromScale(1, 1)
-            text.BackgroundTransparency = 1
-            text.Text = "Moonlight"
-            text.Font = Enum.Font.GothamBold
-            text.TextScaled = true
-            text.TextWrapped = true
-            text.TextColor3 = Color3.fromRGB(214, 178, 64)
-            text.TextTransparency = 1
-            text.TextStrokeTransparency = 1
-            text.ZIndex = zindex
-            text.Parent = center
-            local limit = Instance.new("UITextSizeConstraint")
-            limit.MinTextSize = 16
-            limit.MaxTextSize = 40
-            limit.Parent = text
-            return text
-        end
-
-        local strokes = {}
-        local softGlow = {0.997, 0.99, 0.98, 0.965, 0.945, 0.905, 0.84, 0.66, 0.42}
-        local brightGlow = {0.994, 0.987, 0.975, 0.955, 0.925, 0.875, 0.80, 0.58, 0.30}
-        for i, width in ipairs({30, 24, 19, 15, 11, 8, 5, 3, 1}) do
-            local glow = label("Glow" .. i, i)
-            local stroke = Instance.new("UIStroke")
-            stroke.Color = Color3.fromRGB(150 + i * 8, 110 + i * 7, 25)
-            stroke.Thickness = width
-            stroke.Transparency = 1
-            stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-            stroke.Parent = glow
-            strokes[#strokes + 1] = stroke
-        end
-        local title = label("Text", 12)
-        local gradient = Instance.new("UIGradient")
-        gradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(224, 198, 120)),
-            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(238, 226, 190)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(186, 142, 32)),
-        })
-        gradient.Parent = title
-
-        animate(shade, 1.6, {BackgroundTransparency = 0.05})
-        task.wait(0.6)
-        if closed then return end
-        animate(title, 1.8, {TextTransparency = 0})
-        animate(center, 2.4, {Position = UDim2.fromScale(0.5, 0.5)})
-        for i, stroke in ipairs(strokes) do
-            animate(stroke, 1.8, {Transparency = softGlow[i]})
-        end
-        task.wait(1.8)
-        if closed then return end
-        for _ = 1, 2 do
-            for i, stroke in ipairs(strokes) do
-                animate(stroke, 1.2, {Transparency = brightGlow[i]})
-            end
-            task.wait(1.2)
-            if closed then return end
-            for i, stroke in ipairs(strokes) do
-                animate(stroke, 1.2, {Transparency = softGlow[i]})
-            end
-            task.wait(1.2)
-            if closed then return end
-        end
-        animate(title, 1.4, {TextTransparency = 1})
-        animate(center, 1.8, {Position = UDim2.new(0.5, 0, 0.5, -6)})
-        for _, stroke in ipairs(strokes) do animate(stroke, 1.4, {Transparency = 1}) end
-        task.wait(0.8)
-        if closed then return end
-        animate(shade, 1.4, {BackgroundTransparency = 1})
-        task.wait(1.4)
-    end, function(err) return tostring(err) end)
-
-    if watchdog then pcall(task.cancel, watchdog) end
-    close()
-    return ok, message
-end
-
-return Intro
-]====]
 sources.Library = [====[
 local requireModule = ...
 local cloneref = (cloneref or clonereference or function(instance: any)
@@ -195,32 +32,32 @@ local Toggles = {}
 local Options = {}
 local Tooltips = {}
 
-local BaseURL = "https://raw.githubusercontent.com/undeited/moonlight/main/"
+local BaseURL = "https://raw.githubusercontent.com/undeited/Moonlight/main/"
 local CustomImageManager = {}
 local CustomImageManagerAssets = {
     TransparencyTexture = {
-        Path = "moonlight/assets/TransparencyTexture.png",
+        Path = "Moonlight/assets/TransparencyTexture.png",
         URL = BaseURL .. "assets/TransparencyTexture.png",
 
         Id = nil,
     },
 
     SaturationMap = {
-        Path = "moonlight/assets/SaturationMap.png",
+        Path = "Moonlight/assets/SaturationMap.png",
         URL = BaseURL .. "assets/SaturationMap.png",
 
         Id = nil,
     },
 
     LoadingIcon = {
-        Path = "moonlight/assets/LoadingIcon.png",
+        Path = "Moonlight/assets/LoadingIcon.png",
         URL = BaseURL .. "assets/LoadingIcon.png",
 
         Id = nil,
     },
 
     CheckIcon = {
-        Path = "moonlight/assets/CheckIcon.png",
+        Path = "Moonlight/assets/CheckIcon.png",
         URL = BaseURL .. "assets/CheckIcon.png",
 
         Id = nil,
@@ -260,7 +97,7 @@ do
         end
 
         CustomImageManagerAssets[AssetName] = {
-            Path = string.format("moonlight/custom_assets/%s", AssetName),
+            Path = string.format("Moonlight/custom_assets/%s", AssetName),
             URL = URL,
 
             Id = nil,
@@ -16245,22 +16082,22 @@ end
 if writefile and readfile and isfile and isfolder and makefolder and getcustomasset then
 	local Broken = false
 
-	if not isfolder("moonlight-icons") then
-		makefolder("moonlight-icons")
+	if not isfolder("Moonlight-icons") then
+		makefolder("Moonlight-icons")
 	end
 
-	if not isfile("moonlight-icons/version.txt") then
-		writefile("moonlight-icons/version.txt", "v2")
+	if not isfile("Moonlight-icons/version.txt") then
+		writefile("Moonlight-icons/version.txt", "v2")
 	end
 
-	local ShouldUpdate = readfile("moonlight-icons/version.txt") ~= "v2"
+	local ShouldUpdate = readfile("Moonlight-icons/version.txt") ~= "v2"
 
 	if ShouldUpdate then
-		writefile("moonlight-icons/version.txt", "v2")
+		writefile("Moonlight-icons/version.txt", "v2")
 	end
 
 	for spritesheet = 1, 2 do
-		local Path = `moonlight-icons/{spritesheet}.png`
+		local Path = `Moonlight-icons/{spritesheet}.png`
 		local NeedsDownload = ShouldUpdate or not isfile(Path)
 
 		if not NeedsDownload then
@@ -16271,7 +16108,7 @@ if writefile and readfile and isfile and isfolder and makefolder and getcustomas
 		if NeedsDownload then
 			local Success, Result = pcall(function()
 				return game:HttpGet(
-					`https://raw.githubusercontent.com/undeited/moonlight/main/spritesheets/{spritesheet}.png`
+					`https://raw.githubusercontent.com/undeited/Moonlight/main/spritesheets/{spritesheet}.png`
 				)
 			end)
 
@@ -16292,7 +16129,7 @@ if writefile and readfile and isfile and isfolder and makefolder and getcustomas
 	IS_GETCUSTOMASSET_BROKEN = Broken
 end
 
-local icons = {{"align-vertical-distribute-center","chevron-down","list-restart","table-cells-split","gavel","dna-off","refresh-ccw-dot","venus","bean","circle-question-mark","folder-code","bolt","heater","feather","align-horizontal-distribute-center","grip-vertical","pill-bottle","person-standing","badge-swiss-franc","between-horizontal-end","file-braces-corner","rotate-cw","house-plus","bus-front","shield-ellipsis","between-vertical-end","globe-lock","tags","concierge-bell","bookmark-minus","file-down","picture-in-picture","messages-square","scissors","file-check-corner","phone-call","anchor","hand-helping","text-wrap","birdhouse","wifi-off","cloud-alert","message-square","cloud-download","folder-plus","cctv-off","mirror-round","user-round","pointer","between-horizontal-start","chevrons-up-down","brush","message-circle-more","parentheses","book-up-2","flame","chevrons-up","square-dashed","square-mouse-pointer","superscript","signal","wifi-cog","hexagon","navigation-2-off","eye-off","arrows-up-from-line","file-code-corner","square-centerline-dashed-horizontal","panels-right-bottom","scaling","hash","arrow-left-from-line","ship","ticket-percent","calendar-clock","x","non-binary","voicemail","presentation","tree-palm","badge","captions-off","align-vertical-justify-center","download","mouse-right","lens-convex","focus","diamond-percent","arrow-big-up","volume-x","mouse-pointer-click","face-slightly-smiling-plus","hard-drive","grid-2x2-x","package-minus","cloud","pipette","corner-left-down","badge-cent","cloud-lightning","user-round-pen","arrow-left-to-line","book-open-text","monitor-cloud","parking-meter","cat","heart-handshake","dam","trees","ham","circle-pause","chess-king","bean-off","rat","separator-horizontal","ambulance","signal-zero","citrus","phone-missed","calendar-off","chart-column","battery-medium","square-minus","star-check","decimals-arrow-left","folder-output","menu","image-down","terminal","circle-dot-dashed","medal","cake-slice","git-graph","armchair","tickets","qr-code","copy","goal","trending-down","creative-commons","layers-arrow-down","ev-charger","user-star","road","nfc","align-center-horizontal","car","notebook-tabs","ear","videotape","sun-moon","chart-scatter","podium","toolbox","calendar","calendar-cog","gallery-horizontal","clipboard-x","list-sort-ascending","book-open","circle-pile","rectangle-ellipsis","badge-plus","badge-info","file-headphone","bow-arrow","clipboard-pen-line","user-round-key","folder-search","utensils-crossed","arrow-up","arrow-up-from-dot","align-vertical-justify-start","layers-minus","pause","shrub","flag","biceps-flexed","align-horizontal-distribute-end","donut","calendar-plus-2","move-vertical","file-pen-line","badge-russian-ruble","radius","pilcrow","corner-left-up","georgian-lari","cable","book-user","square-arrow-down","circle-plus","view","cctv","circle-arrow-left","square-off","octagon-alert","panel-bottom-dashed","book-a","align-end-vertical","thumbs-up","globe","rabbit","layers-plus","banknote-arrow-down","message-square-off","dice-4","message-circle-x","folder-x","message-circle-warning","map","move","arrow-up-left","award","arrow-down-wide-narrow","unfold-horizontal","lens-concave","motorbike","music-4","shield-x","file-volume","disc-3","file-signal","columns-4","archive-x","square-dashed-kanban","mouse-pointer-2","clock-arrow-up","clock-fading","pencil-sparkles","vegan","star-plus","message-circle-plus","credit-card-plus","fast-forward","user-pen","chess-knight","wifi-pen","files","send-to-back","alarm-clock","shopping-basket","send","brush-cleaning","skip-back","book-audio","file-scan","midi-port","message-square-dashed","chevrons-left","umbrella","skip-forward","clipboard-copy","map-pin-off","arrow-up-from-line","circle-chevron-up","circle-small","align-vertical-space-between","lamp-desk","circle-arrow-up","zap","beaker","paintbrush","broccoli","chevron-up","pen-tool","database-check","form","pencil-ruler","dna","arrow-big-down-dash","chart-area","bug-off","card-sim","map-pin-search","eye-dashed","ellipse","spell-check","popcorn","blocks","layer-arrow-up","microchip","badge-minus","cloud-sun","circle","shield-alert","map-minus","separator-vertical","scan-square","ampersands","user-search","fence","square-user-round","sunrise","strikethrough","calendar-days","folder-bookmark","banknote-arrow-up","zoom-out","dollar-sign","message-square-quote","zoom-in","zodiac-virgo","list-chevrons-down-up","list-minus","cloud-hail","contact","eye-closed","app-window-mac","folder-lock","ellipsis","copy-check","zodiac-pisces","satellite","bookmark-plus","text-align-justify","folder-key","coffee","circle-power","zodiac-libra","hourglass","tickets-plane","folder-git","zodiac-leo","bomb","layers-2","battery-full","zodiac-gemini","user-minus","chart-gantt","folder-tree","command","badge-dollar-sign","align-start-vertical","briefcase-conveyor-belt","message-circle-question-mark","square-arrow-out-up-right","bluetooth-off","save","square-square","cannabis","zodiac-aries","book","grip-horizontal","circle-minus","audio-waveform","moon-star","arrow-down-narrow-wide","zodiac-aquarius","database-backup","wand","receipt-turkish-lira","robot-arm","calendar-minus-2","copy-minus","x-line-top","folder-input","book-image","stamp","mouse-left","tag-plus","shirt","infinity","server-off","move-up","worm","workflow","plug-2","wine-off","chess-rook","brackets","calendar-heart","list-ordered","wine","star-x","mic-off","wind-arrow-down","arrow-big-left","square-split-horizontal","joystick","phone-forwarded","clover","sun-snow","sofa","wifi-sync","square-arrow-out-up-left","funnel-x","wifi-high","clock-2","calendar-fold","fish-off","baby","database-x","fold-vertical","wifi","hop","face-angry","van","cigarette","minus","wheat-off","wheat","diamond-plus","weight-tilde","file-chart-column","triangle-dashed","git-pull-request-closed","badge-check","weight","shrimp","layers-arrow-up","plug-zap","heading-4","chess-queen","graduation-cap","grid-3x2","zodiac-sagittarius","webcam-off","square-dashed-bottom-code","clock-7","ethernet-port","scan-text","webcam","shower-head","equal-not","waypoints","move-down","clock-arrow-down","ticket-slash","ruler","waves-vertical","waves-ladder","circle-user-round","waves-horizontal","settings-2","list-filter","map-pin-check","egg-off","waves-arrow-down","cog","dog","watch","swords","spotlight","panel-right-dashed","washing-machine","paper-bag","truck-electric","house-wifi","check-line","wand-sparkles","bubbles","bot","chart-bar-increasing","wallpaper","playing-card","air-vent","wallet-minimal","dot","wallet-cards","wallet","file-symlink","clipboard-paste","chevron-last","book-heart","vote","circle-parking","globe-check","cloud-check","panel-left","circle-chevron-right","volume-off","search-alert","squares-unite","arrow-down-up","git-fork","forward","brain-circuit","between-vertical-start","database","panel-right","volume-1","volume","volleyball","log-out","git-branch-plus","clipboard-minus","file-text","touchpad","video","ship-wheel","table-rows-split","milk-off","tv-minimal","cloud-upload","banknote","vibrate","message-circle-dashed-check","drumstick","venus-and-mars","calendar-search","pound-sterling","map-pin-x-inside","bell-ring","circle-chevron-left","vector-polygon","arrow-down","arrow-up-down","folder-dot","vault","badge-x","whole-word","monitor","disc-2","trending-up-down","utility-pole","user-shield","utensils","tv-minimal-play","circle-stop","align-vertical-space-around","users-round","users","user-x","arrow-big-down","circle-parking-off","calendar-x-2","user-plus","move-diagonal-2","bandage","gallery-horizontal-end","panel-top-dashed","user-round-x","user-round-search","tram-front","message-square-plus","fuel","user-round-cog","audio-lines","user-round-check","user-round-arrow-left","user-lock","flip-vertical-2","rocket","user-key","ear-off","square-chart-gantt","save-check","shuffle","user","printer","megaphone-off","usb-c-port","arrow-big-right","section","file-clock","magnet","toy-brick","square-chevron-down","dice-1","drill","app-window","robot-vacuum","hand-metal","upload","spell-check-2","unplug","square","list-plus","unlink","rotate-ccw-key","university","chart-pie","ungroup","unfold-vertical","copy-slash","wind","undo-2","layout-panel-left","undo","circle-percent","underline","circle-arrow-out-down-right","square-x","italic","chart-column-increasing","umbrella-off","step-forward","type-outline","a-arrow-down","broom-sparkles","sticker","folder-minus","file-minus","flower","turntable","turkish-lira","truck","import","badge-turkish-lira","square-terminal","file-music","trophy","beef","route-off","file-user","folder-search-2","square-radical","triangle-alert","image-upscale","book-type","triangle","signpost-big","trending-up","cloudy","thermometer-snowflake","square-percent","tree-deciduous","navigation-off","arrow-left","car-taxi-front","trash-2","message-square-share","chevrons-right-left","transgender","chevron-left","train-front-tunnel","milestone","file-chart-column-increasing","traffic-cone","square-dimensions","face-slightly-smiling","align-end-horizontal","layer-arrow-down","equal","megaphone","calendar-x","tractor","tower-control","egg","receipt-swiss-franc","touchpad-off","ship-cargo","circle-pound-sterling","video-off","japanese-yen","torus","tornado","tool-case","library","file-terminal","circle-chevron-down","accessibility","toilet","square-library","amphora","salad","tally-2","toggle-left","timer-reset","pin-off","timer","sheet","circle-check-big","timeline","ticket-x","map-pinned","corner-down-left","circuit-board","square-dot","list-clock","save-plus","monitor-check","folder-open-dot","book-dashed","line-squiggle","thermometer-sun","bluetooth","tree-pine","receipt-indian-rupee","thermometer","theater","heading-3","text-quote","origami","text-cursor-input","flask-conical","text-cursor","funnel","square-star","folder-sync","ice-cream-cone","zodiac-ophiuchus","text-align-end","text-align-center","arrow-up-narrow-wide","fishing-hook","test-tubes","test-tube-diagonal","brick-wall-fire","frame","calendar-arrow-down","clock-12","star-minus","switch-camera","tent","images","lollipop","book-text","telescope","lamp-floor","file-plus-corner","image","iteration-cw","badge-euro","bike","angle","tangent","settings","list-chevrons-up-down","tally-3","calendar-minus","scan-box","option","banknote-check","scroll-text","server-plus","tag","tablets","tablet-smartphone","toggle-right","table-properties","ferris-wheel","camera-off","table-of-contents","table-columns-split","table-cells-merge","table-2","table","group","syringe","battery","cookie","tent-tree","swiss-franc","rectangle-horizontal","snail","sunset","sun-medium","bitcoin","sun-dim","battery-plus","database-search","school","file-diff","folder-open","subscript","stretch-vertical","spline-pointer","stretch-horizontal","axis-3d","mic-audio-lines","stone","binoculars","house-plug","sticky-note-x","chart-bar-stacked","rose","factory","mail-minus","git-commit-vertical","sticky-note-check","sticky-note","stethoscope","clipboard-pen","bottle-wine","alarm-clock-off","step-back","list","star-off","square-arrow-right","sandwich","badge-pound-sterling","bookmark-check","star","wrench-off","squirrel","a-arrow-up","clock-check","flag-off","squircle","vibrate-off","face-grinning","zodiac-cancer","squares-exclude","file-code","square-user","chart-column-big","square-text","monitor-pause","cassette-tape","battery-low","square-stack","square-split-vertical","signpost","square-slash","calendar-arrow-up","landmark","fish-symbol","square-sigma","loader","bold","dice-2","file-type","clipboard-clock","beer","lectern","square-scissors","square-round-corner","layers","binary","move-diagonal","square-plus","door-closed","square-play","layout-template","square-pilcrow","square-pi","monitor-off","bookmark-off","hand-heart","square-pause","scan-qr-code","message-square-check","iteration-ccw","square-parking","radar","brain","square-m","square-kanban","bed-single","key","clock-11","square-equal","ticket-plus","arrow-up-0-1","bell-electric","square-divide","heading","book-open-check","panel-top-close","lasso-select","soup","speech","puzzle","square-dashed-bottom","bus","square-code","audio-lines-x","chart-no-axes-gantt","file-spreadsheet","square-chevron-up","clipboard-list","pen-line","contact-round","square-chevron-left","keyboard-off","rewind","file-badge","battery-warning","mail-question-mark","arrow-down-from-line","briefcase","biohazard","rectangle-circle","braces","scale-3d","panel-top-bottom-dashed","mail-x","square-dashed-mouse-pointer","user-cog","lock-open","square-centerline-dashed-vertical","pizza","list-indent-decrease","arrow-up-wide-narrow","square-bottom-dashed-scissors","clock-5","square-asterisk","rotate-ccw","align-horizontal-justify-center","square-arrow-up-right","antenna","memory-stick","scan-eye","search","square-check","heart-plus","square-arrow-right-exit","map-pin-minus-inside","git-merge","gallery-vertical-end","square-arrow-right-enter","hand-coins","zodiac-capricorn","wifi-low","move-right","clock","file-pen","git-compare-arrows","cloud-sun-rain","align-horizontal-justify-start","square-arrow-out-down-left","headset","square-arrow-down-right","calendar-plus","git-commit-horizontal","arrow-down-z-a","bath","navigation-2","unlink-2","sprout","spray-can","folder-check","sport-shoe","book-key","ribbon","microwave","smartphone-nfc","gallery-vertical","shield-plus","folder","square-dashed-text","map-pin-pen","move-up-left","speaker","folder-heart","sparkles","sparkle","spade","arrow-up-a-z","file-up","square-dashed-top-solid","solar-panel","soap-dispenser-droplet","snowflake","swatch-book","receipt-cent","spool","folder-archive","folder-symlink","columns-3","ban","message-square-x","paint-roller","chevrons-left-right-ellipsis","archive","smartphone","sliders-vertical","building-2","circle-slash-2","sliders-horizontal","cake","cloud-rain","chart-bar","circle-play","wrench","skull","siren","signature","flag-triangle-right","signal-medium","signal-low","bell","keyboard","sigma","music-3","chart-bar-big","user-check","proportions","eject","plane","webhook-off","carrot","square-arrow-left","file-cog","circle-dashed","move-up-right","panels-left-bottom","shopping-bag","mailbox","squares-subtract","shield-user","shield-question-mark","split","list-sort-descending","shield-off","forklift","hand-platter","alarm-clock-minus","heart-x","eraser","book-marked","shield-lock","bluetooth-connected","rotate-ccw-square","chart-no-axes-column","cannabis-off","folder-kanban","shield-keyhole","mars-stroke","shield-half","shield-cog-corner","shield-cog","file-box","shield-check","paint-bucket","glass-water","shield-ban","glasses","piggy-bank","shield","cuboid","cloud-off","check-check","activity","axe","plane-takeoff","shelving-unit","cloud-rain-wind","shell","clipboard","copy-x","file-axis-3d","radical","chart-column-decreasing","share","bug-play","align-vertical-distribute-start","shapes","waves-arrow-up","tally-5","server-crash","server-cog","server","circle-divide","send-horizontal","search-x","search-slash","life-buoy","search-code","cloud-sync","volume-2","battery-charging","russian-ruble","square-arrow-up-left","brick-wall-shield","footprints","scroll","building","screen-share-off","screen-share","list-indent-increase","tag-x","book-alert","link-2","astroid","bell-minus","image-up","closed-caption","drum","arrow-up-z-a","sun","scan-search","pyramid","file-key","monitor-up","scan-face","scissors-line-dashed","scan-barcode","scan","ratio","ticket-check","combine","printer-check","save-off","mountain","mars","picture-in-picture-2","radio-off","flower-2","house-heart","squares-intersect","saudi-riyal","satellite-dish","keyboard-music","star-half","playing-cards-fan","code-xml","pencil-line","mails","brain-cog","tablet","sailboat","pi","trash","book-down","hdmi-port","trailer","case-upper","circle-fading-arrow-up","rows-4","croissant","rows-3","rows-2","barcode","router","route","bed","rectangle-vertical","divide","grape","rotate-cw-fading-clock","party-popper","file-chart-pie","rotate-ccw-clock","rotate-3d","dice-6","roller-coaster","blender","notepad-text","zap-off","square-check-big","link","reply","replace-all","laptop-minimal","replace","repeat-off","map-pin-minus","repeat-2","chart-spline","message-square-more","repeat-1","chart-candlestick","repeat","arrow-down-a-z","remove-formatting","regex","move-horizontal","file-sliders","refrigerator","refresh-cw-off","cup-soda","refresh-cw","power","sword","radio","redo","earth","slice","dice-3","milk","mouse-pointer-ban","crown","circle-slash","circle-star","rotate-cw-square","atom","package-x","bed-double","rectangle-goggles","circle-dot","file-exclamation-point","hand-fist","message-circle-code","folder-git-2","message-square-code","grip","towel-rack","receipt-russian-ruble","arrow-big-left-dash","circle-arrow-right","dumbbell","receipt-japanese-yen","receipt-euro","phone-incoming","scale","rainbow","flashlight","panel-top-open","panel-right-close","radio-receiver","notebook","redo-2","radiation","square-menu","quote","monitor-smartphone","laptop","scan-line","clock-4","square-arrow-up","book-minus","file-question-mark","projector","line-dot-right-horizontal","save-pen","arrow-down-to-line","power-off","refresh-ccw","venetian-mask","calendar-check-2","popsicle","spline","banknote-x","git-pull-request-create-arrow","link-2-off","circle-check","plus","plug","playing-cards","play-off","play","plane-landing","timer-off","arrow-big-right-dash","pin","pill","message-square-diff","backpack","pilcrow-left","pickaxe","piano","circle-alert","mic-signal","arrow-down-right","phone-off","receipt","wifi-zero","phone","flashlight-off","phi","percent","image-off","pentagon","pencil-off","database-arrow-down","pen-off","square-chevron-right","mail-search","heading-2","bone-fracture","pc-case","moon","parasol","paperclip","tally-1","ampersand","ad","shopping-cart","align-vertical-justify-end","panel-top","alarm-smoke","panel-right-open","file-input","clock-8","hand-grab","cloud-cog","blend","hd","radio-tower","list-tree","droplet","panel-left-right-dashed","eye","panel-left-open","panel-left-dashed","banana","gpu","message-square-lock","file-minus-corner","circle-equal","face-slightly-frowning","panel-bottom-close","panel-bottom","panda","text-initial","arrow-up-right","paintbrush-vertical","leafy-green","message-square-dot","file-chart-line","columns-3-cog","package-search","package-plus","minimize-2","package-open","component","cone","package-2","file-image","package","palette","barrel","gallery-thumbnails","orbit","cpu","omega","thumbs-down","merge","hamburger","octagon-pause","hat-glasses","code","octagon-minus","monitor-cog","nut-off","nut","file-video-camera","notepad-text-dashed","kanban","bone","apple","rocking-chair","bot-off","list-collapse","mic","newspaper","circle-arrow-out-up-left","network","cable-car","arrow-down-left","square-activity","navigation","cigarette-off","music-2","message-circle","circle-arrow-out-up-right","car-battery","face-neutral","fold-horizontal","shovel","calendar-1","cloud-moon","square-arrow-out-down-right","move-left","clock-plus","circle-euro","cloud-snow","anvil","arrow-big-up-dash","move-down-right","move-down-left","move-3d","maximize","mouse-pointer","mouse-off","chevrons-down-up","clipboard-plus","circle-x","list-end","lock-keyhole-open","circle-ellipsis","chevrons-right","audio-lines-off","message-square-reply","corner-down-right","cloud-backup","summary","lamp-wall-down","mop","paw-print","ellipsis-vertical","globe-off","square-stop","arrow-up-1-0","align-horizontal-justify-end","scan-heart","align-vertical-distribute-end","heart-crack","airplay","monitor-stop","monitor-speaker","monitor-play","monitor-x","bell-check","database-minus","square-pen","map-pin-plus","monitor-dot","dice-5","octagon","ticket","locate","lock-keyhole","train-front","bookmark","microscope","album","mic-vocal","chart-bar-decreasing","database-plus","calendar-sync","funnel-plus","store","circle-arrow-down","notebook-pen","egg-fried","case-sensitive","message-square-warning","corner-right-up","message-square-text","ruler-dimension-line","user-round-plus","panel-left-close","message-square-heart","pilcrow-right","user-round-minus","message-circle-off","message-circle-heart","mail-plus","message-circle-dashed","message-circle-check","maximize-2","mouse-pointer-2-off","drone","slash","credit-card-x","aperture","arrow-right-left","layout-panel-top","vector-square","circle-gauge","map-pin-x","check","text-search","arrow-down-to-dot","monitor-down","delete","chef-hat","fan","map-pin","file-archive","signal-high","inbox","flip-horizontal-2","bell-off","image-play","align-horizontal-space-between","mail-clock","calendar-check","database-zap","droplets","mail-check","broom","mail-badge","layout-list","file-search","mail","alarm-clock-plus","circle-dollar-sign","usb","house","receipt-pound-sterling","logs","log-in","id-card","mouse","minimize","lock","calculator","galaxy","locate-fixed","book-x","mirror-rectangular","loader-pinwheel","loader-circle","crosshair","headphone-off","asterisk","list-video","octagon-x","languages","lightbulb","alarm-clock-check","guitar","list-music","beer-off","scooter","square-parking-off","notebook-text","arrow-right-to-line","ticket-minus","tally-4","zodiac-taurus","list-checks","door-open","flag-triangle-left","grid-3x3","file","list-check","pocket-knife","book-copy","castle","car-front","clock-alert","reply-all","cloud-moon-rain","clipboard-type","line-style","list-todo","printer-x","calendar-range","list-start","ligature","a-large-small","library-big","leaf","map-plus","layout-grid","layout-freeform","layout-dashboard","database-arrow-up","arrow-right-from-line","flame-kindling","square-power","lasso","bring-to-front","bird","land-plot","bell-plus","lamp-wall-up","lamp-ceiling","lamp","folders","mail-warning","key-square","file-play","kayak","chevrons-left-right","chart-line","file-lock","cast","circle-fading-plus","clock-10","undo-dot","target","list-filter-plus","inspection-panel","drama","info","baseline","martini","contrast","indian-rupee","candy-off","image-plus","book-check","image-minus","book-lock","id-card-lanyard","briefcase-medical","calendars","text-align-start","ice-cream-bowl","hop-off","warehouse","sticky-notes","drafting-compass","save-all","hotel","hospital","highlighter","helicopter","heart-pulse","fishing-rod","book-headphones","credit-card","heart-off","heart-minus","heart","shredder","panel-bottom-open","heading-6","heading-5","credit-card-check","balloon","map-pin-plus-inside","bookmark-x","badge-question-mark","pen","heading-1","candy-cane","haze","hard-hat","gamepad-2","hard-drive-upload","hard-drive-download","external-link","handbag","shield-minus","circle-off","dessert","eclipse","church","hand","cylinder","badge-japanese-yen","hammer","receipt-text","fingerprint-pattern","grid-2x2-check","grid-2x2","globe-x","file-output","disc-album","git-pull-request-draft","arrow-down-0-1","captions","git-pull-request-create","construction","philippine-peso","badge-alert","git-merge-conflict","folder-pen","cross","git-compare","chevron-right","sticky-note-minus","square-arrow-down-left","share-2","git-branch","gift","ghost","gem","gauge","gamepad-directional","chess-pawn","gamepad","briefcase-business","fullscreen","message-circle-reply","folder-up","triangle-right","folder-clock","folder-root","mop-sparkles","type","webhook","compass","align-horizontal-distribute-start","folder-cog","folder-closed","pointer-off","turtle","camera","flask-round","flask-conical-off","git-pull-request","bluetooth-searching","arrow-up-to-line","squircle-dashed","clock-3","badge-percent","face-expressionless","fish","fire-extinguisher","grid-2x2-plus","film","box","file-x-corner","clock-1","file-heart","file-x","space","file-type-corner","file-stack","file-search-corner","corner-up-left","clock-6","zodiac-scorpio","key-round","headphones","tv","file-digit","file-check","rss","file-braces","at-sign","map-pin-check-inside","sticky-note-off","music","handshake","expand","circle-user","copy-plus","euro","equal-approximately","shrink","earth-lock","droplet-off","search-check","clipboard-check","columns-2","dock","disc","align-center-vertical","diff","dices","diamond-minus","cloud-fog","mosque","diameter","map-pin-house","package-check","chevron-first","pencil","currency","list-x","crop","caravan","corner-up-right","corner-right-down","clock-arrow-left","copyright","copyleft","badge-indian-rupee","boxes","redo-dot","container","align-start-horizontal","chart-column-stacked","file-plus","git-pull-request-arrow","computer","decimals-arrow-right","bell-dot","folder-down","coins","club","align-horizontal-space-around","door-closed-locked","cloud-drizzle","diamond","blinds","clock-arrow-right","clock-9","book-search","git-branch-minus","clapperboard","recycle","mountain-snow","luggage","circle-arrow-out-down-left","bot-message-square","phone-outgoing","smartphone-charging","chevrons-down","train-track","chess-bishop","cherry","sticky-note-plus","chart-no-axes-column-increasing","chart-no-axes-column-decreasing","chart-network","chart-no-axes-combined","metronome","case-lower","arrow-down-1-0","credit-card-minus","candy","arrow-left-right","lightbulb-off","panels-top-left","beef-off","locate-off","bug","test-tube","brick-wall","cooking-pot","boom-box","book-up","book-plus","laptop-minimal-check","mail-open","square-function","baggage-claim","variable","arrow-right","archive-restore"},{if getcustomasset and not IS_GETCUSTOMASSET_BROKEN then getcustomasset("moonlight-icons/1.png") else "rbxassetid://97854828246256",if getcustomasset and not IS_GETCUSTOMASSET_BROKEN then getcustomasset("moonlight-icons/2.png") else "rbxassetid://96738291359702"},{[48]={{1,{24,24},{150,25}},{1,{24,24},{175,450}},{1,{24,24},{825,250}},{1,{24,24},{925,850}},{1,{24,24},{750,200}},{1,{24,24},{100,700}},{1,{24,24},{425,900}},{2,{24,24},{50,300}},{1,{24,24},{50,350}},{1,{24,24},{175,500}},{1,{24,24},{0,900}},{1,{24,24},{50,400}},{1,{24,24},{650,350}},{1,{24,24},{425,425}},{1,{24,24},{25,100}},{1,{24,24},{750,225}},{1,{24,24},{750,525}},{1,{24,24},{500,750}},{1,{24,24},{300,75}},{1,{24,24},{100,325}},{1,{24,24},{250,600}},{1,{24,24},{925,450}},{1,{24,24},{375,625}},{1,{24,24},{500,50}},{1,{24,24},{775,675}},{1,{24,24},{50,375}},{1,{24,24},{125,825}},{1,{24,24},{825,975}},{1,{24,24},{325,425}},{1,{24,24},{300,200}},{1,{24,24},{800,75}},{1,{24,24},{875,400}},{1,{24,24},{200,925}},{1,{24,24},{550,850}},{1,{24,24},{100,750}},{1,{24,24},{425,825}},{1,{24,24},{75,125}},{1,{24,24},{475,500}},{2,{24,24},{0,25}},{1,{24,24},{325,125}},{2,{24,24},{275,150}},{1,{24,24},{475,250}},{1,{24,24},{225,900}},{1,{24,24},{375,350}},{1,{24,24},{550,375}},{1,{24,24},{425,175}},{1,{24,24},{600,550}},{2,{24,24},{150,175}},{1,{24,24},{925,375}},{1,{24,24},{75,350}},{1,{24,24},{525,125}},{1,{24,24},{100,425}},{1,{24,24},{825,300}},{1,{24,24},{925,325}},{1,{24,24},{450,50}},{1,{24,24},{450,450}},{1,{24,24},{500,150}},{1,{24,24},{650,925}},{1,{24,24},{775,825}},{1,{24,24},{925,825}},{1,{24,24},{550,925}},{2,{24,24},{350,75}},{1,{24,24},{600,400}},{1,{24,24},{975,225}},{1,{24,24},{725,125}},{1,{24,24},{225,100}},{1,{24,24},{25,825}},{1,{24,24},{625,925}},{1,{24,24},{300,925}},{1,{24,24},{900,500}},{1,{24,24},{225,750}},{1,{24,24},{75,200}},{1,{24,24},{975,500}},{2,{24,24},{75,25}},{1,{24,24},{200,350}},{2,{24,24},{400,50}},{1,{24,24},{800,400}},{2,{24,24},{275,100}},{1,{24,24},{775,525}},{2,{24,24},{225,0}},{1,{24,24},{225,150}},{1,{24,24},{200,375}},{1,{24,24},{75,100}},{1,{24,24},{700,125}},{1,{24,24},{675,500}},{1,{24,24},{600,450}},{1,{24,24},{200,700}},{1,{24,24},{500,300}},{1,{24,24},{125,125}},{2,{24,24},{150,225}},{1,{24,24},{725,450}},{1,{24,24},{550,300}},{1,{24,24},{275,700}},{1,{24,24},{875,100}},{1,{24,24},{300,900}},{1,{24,24},{0,725}},{1,{24,24},{650,625}},{1,{24,24},{650,125}},{1,{24,24},{225,125}},{1,{24,24},{275,450}},{2,{24,24},{250,75}},{1,{24,24},{25,250}},{1,{24,24},{75,400}},{1,{24,24},{550,600}},{1,{24,24},{900,350}},{1,{24,24},{450,150}},{1,{24,24},{825,175}},{1,{24,24},{100,675}},{2,{24,24},{175,50}},{1,{24,24},{650,325}},{1,{24,24},{350,325}},{1,{24,24},{300,325}},{1,{24,24},{75,325}},{1,{24,24},{950,375}},{1,{24,24},{725,700}},{1,{24,24},{175,25}},{1,{24,24},{575,900}},{1,{24,24},{625,75}},{1,{24,24},{350,900}},{1,{24,24},{25,525}},{1,{24,24},{100,500}},{1,{24,24},{200,200}},{1,{24,24},{800,800}},{1,{24,24},{900,775}},{1,{24,24},{650,150}},{1,{24,24},{600,325}},{1,{24,24},{125,975}},{1,{24,24},{200,800}},{1,{24,24},{875,975}},{1,{24,24},{650,25}},{1,{24,24},{225,875}},{1,{24,24},{400,150}},{1,{24,24},{425,525}},{1,{24,24},{50,175}},{2,{24,24},{75,50}},{1,{24,24},{575,725}},{1,{24,24},{775,0}},{1,{24,24},{25,925}},{2,{24,24},{150,75}},{1,{24,24},{475,300}},{1,{24,24},{50,975}},{1,{24,24},{850,0}},{2,{24,24},{75,250}},{1,{24,24},{650,700}},{1,{24,24},{825,375}},{1,{24,24},{125,0}},{1,{24,24},{75,500}},{1,{24,24},{750,450}},{1,{24,24},{400,425}},{2,{24,24},{325,50}},{1,{24,24},{800,925}},{1,{24,24},{500,125}},{1,{24,24},{975,325}},{2,{24,24},{25,125}},{1,{24,24},{425,150}},{1,{24,24},{175,375}},{1,{24,24},{950,0}},{1,{24,24},{325,375}},{1,{24,24},{800,275}},{1,{24,24},{50,425}},{1,{24,24},{300,375}},{1,{24,24},{625,700}},{1,{24,24},{0,350}},{1,{24,24},{100,250}},{1,{24,24},{750,125}},{1,{24,24},{50,450}},{1,{24,24},{425,275}},{2,{24,24},{300,25}},{1,{24,24},{475,450}},{2,{24,24},{325,25}},{1,{24,24},{250,75}},{1,{24,24},{100,200}},{1,{24,24},{25,150}},{1,{24,24},{950,100}},{1,{24,24},{850,400}},{1,{24,24},{725,750}},{1,{24,24},{500,400}},{1,{24,24},{0,425}},{1,{24,24},{0,125}},{1,{24,24},{825,0}},{1,{24,24},{0,550}},{1,{24,24},{325,850}},{1,{24,24},{500,375}},{1,{24,24},{325,50}},{1,{24,24},{325,975}},{1,{24,24},{775,500}},{1,{24,24},{625,150}},{1,{24,24},{700,250}},{1,{24,24},{425,125}},{1,{24,24},{400,100}},{1,{24,24},{975,575}},{1,{24,24},{250,425}},{2,{24,24},{300,75}},{1,{24,24},{400,200}},{1,{24,24},{350,300}},{1,{24,24},{750,850}},{1,{24,24},{575,625}},{1,{24,24},{750,475}},{1,{24,24},{450,25}},{1,{24,24},{50,75}},{2,{24,24},{25,50}},{1,{24,24},{50,900}},{1,{24,24},{525,775}},{1,{24,24},{925,125}},{1,{24,24},{75,300}},{1,{24,24},{425,700}},{1,{24,24},{350,450}},{1,{24,24},{675,450}},{1,{24,24},{350,575}},{1,{24,24},{700,425}},{1,{24,24},{375,725}},{1,{24,24},{300,875}},{1,{24,24},{50,250}},{1,{24,24},{0,325}},{1,{24,24},{150,125}},{2,{24,24},{125,150}},{1,{24,24},{625,425}},{1,{24,24},{925,250}},{1,{24,24},{225,950}},{1,{24,24},{550,900}},{1,{24,24},{900,0}},{1,{24,24},{200,600}},{1,{24,24},{275,600}},{1,{24,24},{475,275}},{1,{24,24},{100,125}},{1,{24,24},{750,825}},{1,{24,24},{775,400}},{1,{24,24},{625,100}},{1,{24,24},{575,150}},{1,{24,24},{600,650}},{2,{24,24},{125,225}},{1,{24,24},{800,875}},{1,{24,24},{775,350}},{1,{24,24},{400,375}},{1,{24,24},{450,400}},{2,{24,24},{75,225}},{1,{24,24},{275,350}},{2,{24,24},{250,175}},{1,{24,24},{800,100}},{1,{24,24},{775,650}},{1,{24,24},{50,50}},{1,{24,24},{900,575}},{1,{24,24},{750,675}},{1,{24,24},{125,400}},{1,{24,24},{925,575}},{1,{24,24},{400,75}},{1,{24,24},{350,525}},{1,{24,24},{800,350}},{1,{24,24},{575,550}},{1,{24,24},{600,50}},{2,{24,24},{250,25}},{1,{24,24},{900,600}},{1,{24,24},{525,175}},{1,{24,24},{625,475}},{1,{24,24},{75,225}},{1,{24,24},{50,600}},{1,{24,24},{100,575}},{1,{24,24},{200,0}},{1,{24,24},{450,575}},{1,{24,24},{200,450}},{2,{24,24},{350,100}},{1,{24,24},{100,300}},{1,{24,24},{850,375}},{1,{24,24},{200,325}},{1,{24,24},{50,575}},{1,{24,24},{725,525}},{1,{24,24},{0,775}},{1,{24,24},{225,700}},{1,{24,24},{625,625}},{1,{24,24},{75,725}},{1,{24,24},{25,200}},{1,{24,24},{375,225}},{1,{24,24},{50,475}},{1,{24,24},{25,550}},{1,{24,24},{525,575}},{1,{24,24},{750,100}},{1,{24,24},{200,625}},{1,{24,24},{825,700}},{1,{24,24},{900,400}},{1,{24,24},{200,250}},{1,{24,24},{100,925}},{1,{24,24},{875,275}},{1,{24,24},{50,300}},{1,{24,24},{75,650}},{1,{24,24},{675,25}},{1,{24,24},{900,550}},{1,{24,24},{775,325}},{1,{24,24},{700,725}},{1,{24,24},{675,725}},{1,{24,24},{125,75}},{2,{24,24},{125,200}},{1,{24,24},{400,450}},{1,{24,24},{875,775}},{1,{24,24},{975,775}},{1,{24,24},{925,800}},{1,{24,24},{150,400}},{1,{24,24},{100,800}},{1,{24,24},{50,325}},{2,{24,24},{475,0}},{1,{24,24},{0,800}},{1,{24,24},{375,750}},{2,{24,24},{0,450}},{2,{24,24},{25,425}},{1,{24,24},{225,825}},{1,{24,24},{925,150}},{1,{24,24},{300,425}},{1,{24,24},{225,525}},{1,{24,24},{775,75}},{1,{24,24},{200,25}},{1,{24,24},{700,225}},{1,{24,24},{150,675}},{1,{24,24},{100,650}},{2,{24,24},{125,325}},{1,{24,24},{550,825}},{1,{24,24},{250,250}},{1,{24,24},{950,950}},{1,{24,24},{725,200}},{1,{24,24},{625,125}},{1,{24,24},{200,475}},{2,{24,24},{175,275}},{1,{24,24},{450,550}},{2,{24,24},{100,25}},{1,{24,24},{825,100}},{2,{24,24},{200,250}},{1,{24,24},{25,425}},{1,{24,24},{75,950}},{1,{24,24},{250,150}},{2,{24,24},{225,225}},{2,{24,24},{100,200}},{1,{24,24},{75,525}},{1,{24,24},{400,525}},{1,{24,24},{425,325}},{1,{24,24},{175,175}},{1,{24,24},{175,0}},{1,{24,24},{300,225}},{1,{24,24},{750,375}},{1,{24,24},{850,700}},{1,{24,24},{150,300}},{1,{24,24},{975,425}},{1,{24,24},{675,950}},{1,{24,24},{225,350}},{2,{24,24},{300,150}},{1,{24,24},{350,150}},{1,{24,24},{775,200}},{1,{24,24},{450,225}},{1,{24,24},{25,300}},{1,{24,24},{225,925}},{1,{24,24},{275,0}},{2,{24,24},{325,125}},{1,{24,24},{25,750}},{2,{24,24},{375,25}},{1,{24,24},{700,625}},{1,{24,24},{625,725}},{1,{24,24},{75,475}},{1,{24,24},{75,675}},{2,{24,24},{425,25}},{1,{24,24},{775,150}},{1,{24,24},{225,250}},{1,{24,24},{925,750}},{1,{24,24},{850,325}},{1,{24,24},{900,900}},{1,{24,24},{950,525}},{1,{24,24},{875,150}},{1,{24,24},{625,800}},{1,{24,24},{350,825}},{2,{24,24},{25,400}},{2,{24,24},{50,375}},{1,{24,24},{400,875}},{2,{24,24},{100,325}},{1,{24,24},{200,425}},{1,{24,24},{500,25}},{1,{24,24},{100,450}},{1,{24,24},{875,200}},{2,{24,24},{75,350}},{1,{24,24},{775,900}},{1,{24,24},{975,175}},{2,{24,24},{150,275}},{1,{24,24},{225,25}},{1,{24,24},{725,900}},{1,{24,24},{700,325}},{1,{24,24},{400,850}},{1,{24,24},{725,25}},{1,{24,24},{775,950}},{1,{24,24},{600,900}},{2,{24,24},{225,200}},{1,{24,24},{875,675}},{1,{24,24},{75,850}},{2,{24,24},{325,100}},{1,{24,24},{175,525}},{1,{24,24},{125,425}},{1,{24,24},{700,200}},{1,{24,24},{300,50}},{1,{24,24},{725,75}},{1,{24,24},{150,750}},{2,{24,24},{175,250}},{1,{24,24},{525,475}},{1,{24,24},{675,175}},{2,{24,24},{250,100}},{1,{24,24},{425,225}},{1,{24,24},{650,500}},{2,{24,24},{425,0}},{2,{24,24},{400,25}},{1,{24,24},{475,325}},{2,{24,24},{25,375}},{1,{24,24},{175,675}},{2,{24,24},{50,175}},{1,{24,24},{325,625}},{1,{24,24},{200,150}},{2,{24,24},{0,400}},{1,{24,24},{775,700}},{1,{24,24},{975,75}},{1,{24,24},{375,900}},{1,{24,24},{25,950}},{1,{24,24},{225,400}},{1,{24,24},{975,0}},{1,{24,24},{825,150}},{2,{24,24},{100,350}},{2,{24,24},{125,275}},{1,{24,24},{800,775}},{1,{24,24},{50,650}},{1,{24,24},{25,800}},{1,{24,24},{650,750}},{2,{24,24},{100,300}},{1,{24,24},{825,650}},{1,{24,24},{100,725}},{2,{24,24},{150,250}},{1,{24,24},{500,675}},{1,{24,24},{700,25}},{2,{24,24},{25,75}},{1,{24,24},{700,675}},{2,{24,24},{175,225}},{2,{24,24},{200,200}},{1,{24,24},{25,650}},{2,{24,24},{225,175}},{1,{24,24},{550,875}},{1,{24,24},{75,975}},{1,{24,24},{725,375}},{1,{24,24},{275,550}},{2,{24,24},{275,125}},{1,{24,24},{600,150}},{1,{24,24},{25,775}},{2,{24,24},{300,100}},{1,{24,24},{800,950}},{1,{24,24},{675,850}},{1,{24,24},{525,700}},{2,{24,24},{325,75}},{1,{24,24},{250,975}},{2,{24,24},{225,25}},{1,{24,24},{350,650}},{1,{24,24},{425,200}},{2,{24,24},{400,0}},{1,{24,24},{75,450}},{1,{24,24},{100,400}},{1,{24,24},{300,300}},{2,{24,24},{0,375}},{1,{24,24},{475,800}},{1,{24,24},{75,0}},{2,{24,24},{50,325}},{1,{24,24},{725,100}},{2,{24,24},{75,300}},{2,{24,24},{25,350}},{1,{24,24},{175,700}},{1,{24,24},{450,250}},{1,{24,24},{125,500}},{1,{24,24},{250,225}},{2,{24,24},{100,275}},{1,{24,24},{375,300}},{1,{24,24},{150,800}},{1,{24,24},{425,300}},{1,{24,24},{575,650}},{1,{24,24},{75,575}},{2,{24,24},{175,200}},{1,{24,24},{975,450}},{1,{24,24},{700,950}},{1,{24,24},{175,100}},{1,{24,24},{450,500}},{1,{24,24},{200,725}},{1,{24,24},{475,50}},{1,{24,24},{25,400}},{1,{24,24},{675,125}},{1,{24,24},{475,750}},{2,{24,24},{225,150}},{2,{24,24},{125,250}},{2,{24,24},{250,125}},{1,{24,24},{325,750}},{1,{24,24},{600,350}},{1,{24,24},{475,225}},{1,{24,24},{125,750}},{2,{24,24},{125,50}},{2,{24,24},{350,25}},{1,{24,24},{475,975}},{1,{24,24},{825,950}},{1,{24,24},{750,400}},{2,{24,24},{75,175}},{1,{24,24},{25,700}},{1,{24,24},{400,0}},{2,{24,24},{0,350}},{1,{24,24},{900,225}},{1,{24,24},{475,350}},{2,{24,24},{75,275}},{1,{24,24},{525,50}},{1,{24,24},{850,450}},{1,{24,24},{500,600}},{1,{24,24},{150,275}},{1,{24,24},{100,550}},{2,{24,24},{175,175}},{1,{24,24},{100,175}},{1,{24,24},{125,175}},{1,{24,24},{900,25}},{2,{24,24},{200,150}},{1,{24,24},{250,125}},{2,{24,24},{375,50}},{1,{24,24},{250,900}},{1,{24,24},{225,575}},{2,{24,24},{125,100}},{2,{24,24},{275,75}},{2,{24,24},{100,225}},{2,{24,24},{300,50}},{2,{24,24},{100,150}},{1,{24,24},{50,625}},{1,{24,24},{0,175}},{2,{24,24},{0,325}},{2,{24,24},{350,0}},{2,{24,24},{50,275}},{1,{24,24},{0,225}},{1,{24,24},{400,275}},{1,{24,24},{475,100}},{2,{24,24},{50,250}},{1,{24,24},{600,575}},{1,{24,24},{100,275}},{1,{24,24},{0,925}},{1,{24,24},{400,825}},{2,{24,24},{175,150}},{2,{24,24},{200,125}},{2,{24,24},{100,100}},{1,{24,24},{400,725}},{1,{24,24},{150,775}},{2,{24,24},{325,0}},{1,{24,24},{50,275}},{2,{24,24},{0,300}},{2,{24,24},{25,275}},{2,{24,24},{125,175}},{1,{24,24},{275,625}},{1,{24,24},{575,775}},{2,{24,24},{150,150}},{1,{24,24},{425,400}},{1,{24,24},{575,975}},{1,{24,24},{475,900}},{1,{24,24},{700,775}},{2,{24,24},{25,300}},{1,{24,24},{700,600}},{1,{24,24},{200,900}},{2,{24,24},{250,50}},{1,{24,24},{175,75}},{1,{24,24},{825,600}},{1,{24,24},{50,800}},{1,{24,24},{225,850}},{2,{24,24},{50,125}},{1,{24,24},{925,650}},{1,{24,24},{425,375}},{1,{24,24},{625,200}},{1,{24,24},{175,50}},{1,{24,24},{600,750}},{1,{24,24},{450,525}},{2,{24,24},{275,25}},{1,{24,24},{850,675}},{2,{24,24},{300,0}},{1,{24,24},{800,850}},{1,{24,24},{850,225}},{2,{24,24},{0,275}},{1,{24,24},{425,925}},{2,{24,24},{50,225}},{1,{24,24},{525,100}},{2,{24,24},{75,200}},{2,{24,24},{100,175}},{1,{24,24},{25,725}},{2,{24,24},{125,300}},{2,{24,24},{200,75}},{1,{24,24},{775,275}},{2,{24,24},{150,125}},{1,{24,24},{325,350}},{2,{24,24},{225,50}},{1,{24,24},{300,350}},{1,{24,24},{825,825}},{1,{24,24},{800,225}},{1,{24,24},{150,450}},{2,{24,24},{275,0}},{1,{24,24},{700,975}},{2,{24,24},{25,225}},{1,{24,24},{0,0}},{1,{24,24},{175,350}},{1,{24,24},{950,750}},{1,{24,24},{675,250}},{1,{24,24},{575,300}},{1,{24,24},{225,675}},{2,{24,24},{150,100}},{2,{24,24},{175,75}},{2,{24,24},{200,50}},{1,{24,24},{950,75}},{1,{24,24},{275,100}},{1,{24,24},{925,725}},{1,{24,24},{550,325}},{2,{24,24},{250,0}},{1,{24,24},{375,50}},{1,{24,24},{900,475}},{1,{24,24},{25,850}},{1,{24,24},{500,425}},{1,{24,24},{850,775}},{2,{24,24},{75,150}},{1,{24,24},{50,950}},{1,{24,24},{475,25}},{2,{24,24},{0,225}},{1,{24,24},{500,975}},{2,{24,24},{100,125}},{1,{24,24},{750,0}},{2,{24,24},{25,25}},{1,{24,24},{625,975}},{2,{24,24},{0,200}},{1,{24,24},{925,275}},{1,{24,24},{0,275}},{1,{24,24},{100,475}},{2,{24,24},{50,150}},{1,{24,24},{325,800}},{1,{24,24},{575,75}},{2,{24,24},{75,125}},{1,{24,24},{100,525}},{2,{24,24},{175,25}},{1,{24,24},{775,375}},{1,{24,24},{200,650}},{2,{24,24},{0,175}},{1,{24,24},{625,950}},{1,{24,24},{525,325}},{1,{24,24},{75,50}},{1,{24,24},{125,900}},{1,{24,24},{75,750}},{1,{24,24},{175,925}},{1,{24,24},{450,125}},{2,{24,24},{25,150}},{2,{24,24},{75,100}},{1,{24,24},{250,575}},{1,{24,24},{750,575}},{2,{24,24},{150,25}},{1,{24,24},{500,950}},{1,{24,24},{225,450}},{2,{24,24},{375,0}},{1,{24,24},{725,300}},{2,{24,24},{175,0}},{2,{24,24},{0,150}},{2,{24,24},{50,100}},{1,{24,24},{550,500}},{1,{24,24},{150,725}},{1,{24,24},{125,525}},{1,{24,24},{50,0}},{2,{24,24},{75,75}},{1,{24,24},{875,725}},{1,{24,24},{100,100}},{1,{24,24},{625,750}},{1,{24,24},{950,875}},{2,{24,24},{125,25}},{2,{24,24},{0,125}},{1,{24,24},{700,575}},{2,{24,24},{150,0}},{1,{24,24},{975,475}},{1,{24,24},{175,475}},{2,{24,24},{50,75}},{2,{24,24},{0,100}},{1,{24,24},{425,675}},{1,{24,24},{700,75}},{1,{24,24},{650,50}},{1,{24,24},{975,625}},{1,{24,24},{175,875}},{1,{24,24},{400,975}},{1,{24,24},{575,575}},{1,{24,24},{650,275}},{1,{24,24},{325,150}},{1,{24,24},{400,650}},{2,{24,24},{0,50}},{1,{24,24},{100,350}},{2,{24,24},{200,25}},{1,{24,24},{850,475}},{2,{24,24},{75,0}},{2,{24,24},{50,0}},{1,{24,24},{50,925}},{2,{24,24},{0,0}},{1,{24,24},{375,825}},{1,{24,24},{975,950}},{1,{24,24},{350,550}},{1,{24,24},{950,975}},{1,{24,24},{50,875}},{1,{24,24},{975,675}},{1,{24,24},{425,500}},{1,{24,24},{275,725}},{2,{24,24},{150,300}},{1,{24,24},{975,925}},{1,{24,24},{900,975}},{1,{24,24},{25,275}},{1,{24,24},{625,275}},{1,{24,24},{925,950}},{1,{24,24},{975,900}},{1,{24,24},{400,125}},{1,{24,24},{175,750}},{1,{24,24},{300,250}},{1,{24,24},{200,500}},{1,{24,24},{850,825}},{1,{24,24},{850,900}},{1,{24,24},{900,950}},{1,{24,24},{975,50}},{1,{24,24},{275,800}},{1,{24,24},{500,0}},{1,{24,24},{950,900}},{1,{24,24},{425,600}},{1,{24,24},{425,450}},{1,{24,24},{25,975}},{1,{24,24},{750,275}},{1,{24,24},{150,200}},{1,{24,24},{450,0}},{1,{24,24},{50,150}},{1,{24,24},{850,975}},{1,{24,24},{525,900}},{1,{24,24},{200,850}},{1,{24,24},{925,900}},{1,{24,24},{50,500}},{1,{24,24},{850,550}},{1,{24,24},{425,775}},{1,{24,24},{25,350}},{1,{24,24},{450,950}},{1,{24,24},{600,825}},{1,{24,24},{850,950}},{1,{24,24},{925,875}},{1,{24,24},{975,825}},{2,{24,24},{100,50}},{1,{24,24},{850,925}},{1,{24,24},{375,475}},{1,{24,24},{375,200}},{1,{24,24},{875,900}},{1,{24,24},{900,875}},{1,{24,24},{950,825}},{1,{24,24},{975,800}},{1,{24,24},{800,975}},{1,{24,24},{700,275}},{1,{24,24},{775,975}},{1,{24,24},{125,275}},{1,{24,24},{150,600}},{1,{24,24},{925,925}},{1,{24,24},{875,875}},{1,{24,24},{575,750}},{1,{24,24},{675,825}},{1,{24,24},{950,800}},{1,{24,24},{825,900}},{1,{24,24},{300,150}},{1,{24,24},{850,875}},{1,{24,24},{175,225}},{1,{24,24},{750,50}},{1,{24,24},{600,800}},{1,{24,24},{850,25}},{1,{24,24},{625,300}},{1,{24,24},{900,825}},{1,{24,24},{950,775}},{1,{24,24},{800,725}},{1,{24,24},{975,750}},{1,{24,24},{325,25}},{1,{24,24},{150,975}},{1,{24,24},{750,950}},{1,{24,24},{400,50}},{1,{24,24},{400,600}},{1,{24,24},{825,875}},{1,{24,24},{275,325}},{1,{24,24},{500,850}},{1,{24,24},{500,350}},{1,{24,24},{125,950}},{1,{24,24},{525,425}},{1,{24,24},{925,775}},{1,{24,24},{800,900}},{1,{24,24},{975,725}},{1,{24,24},{400,300}},{1,{24,24},{75,425}},{1,{24,24},{100,0}},{1,{24,24},{725,950}},{1,{24,24},{625,450}},{1,{24,24},{825,850}},{1,{24,24},{775,775}},{1,{24,24},{600,775}},{1,{24,24},{375,0}},{1,{24,24},{325,175}},{1,{24,24},{750,925}},{2,{24,24},{0,425}},{1,{24,24},{950,725}},{1,{24,24},{25,0}},{1,{24,24},{600,125}},{1,{24,24},{575,325}},{1,{24,24},{975,700}},{2,{24,24},{25,325}},{1,{24,24},{625,225}},{2,{24,24},{275,175}},{1,{24,24},{775,875}},{1,{24,24},{0,850}},{1,{24,24},{850,800}},{1,{24,24},{200,400}},{1,{24,24},{900,750}},{1,{24,24},{425,725}},{1,{24,24},{525,75}},{1,{24,24},{225,175}},{1,{24,24},{650,975}},{1,{24,24},{700,925}},{1,{24,24},{975,525}},{1,{24,24},{750,875}},{1,{24,24},{275,275}},{1,{24,24},{300,725}},{1,{24,24},{675,225}},{1,{24,24},{775,850}},{1,{24,24},{550,525}},{1,{24,24},{75,375}},{1,{24,24},{400,400}},{1,{24,24},{75,800}},{1,{24,24},{550,150}},{1,{24,24},{325,100}},{1,{24,24},{650,400}},{1,{24,24},{800,825}},{1,{24,24},{825,800}},{1,{24,24},{900,150}},{1,{24,24},{425,25}},{1,{24,24},{575,600}},{1,{24,24},{900,725}},{1,{24,24},{775,50}},{1,{24,24},{925,700}},{1,{24,24},{725,325}},{1,{24,24},{950,675}},{1,{24,24},{975,650}},{1,{24,24},{450,700}},{1,{24,24},{275,225}},{1,{24,24},{500,475}},{1,{24,24},{675,925}},{1,{24,24},{725,675}},{1,{24,24},{625,500}},{1,{24,24},{775,250}},{1,{24,24},{700,900}},{1,{24,24},{500,800}},{1,{24,24},{425,100}},{1,{24,24},{850,750}},{1,{24,24},{900,700}},{1,{24,24},{0,400}},{1,{24,24},{575,450}},{1,{24,24},{225,475}},{1,{24,24},{950,650}},{2,{24,24},{50,50}},{1,{24,24},{200,100}},{1,{24,24},{250,175}},{1,{24,24},{600,975}},{1,{24,24},{950,50}},{1,{24,24},{100,375}},{1,{24,24},{425,800}},{1,{24,24},{175,850}},{1,{24,24},{550,950}},{1,{24,24},{875,650}},{1,{24,24},{625,675}},{1,{24,24},{775,800}},{1,{24,24},{475,75}},{1,{24,24},{825,750}},{1,{24,24},{75,250}},{1,{24,24},{550,75}},{1,{24,24},{225,650}},{1,{24,24},{850,725}},{1,{24,24},{500,200}},{1,{24,24},{775,475}},{1,{24,24},{250,500}},{1,{24,24},{900,675}},{1,{24,24},{525,500}},{1,{24,24},{700,650}},{1,{24,24},{300,550}},{1,{24,24},{150,250}},{1,{24,24},{950,150}},{1,{24,24},{25,225}},{1,{24,24},{250,275}},{1,{24,24},{375,75}},{1,{24,24},{650,675}},{1,{24,24},{525,0}},{1,{24,24},{950,450}},{1,{24,24},{450,775}},{1,{24,24},{875,225}},{1,{24,24},{725,850}},{2,{24,24},{175,125}},{1,{24,24},{400,675}},{1,{24,24},{600,950}},{1,{24,24},{625,650}},{1,{24,24},{975,100}},{1,{24,24},{300,25}},{1,{24,24},{650,900}},{1,{24,24},{100,600}},{1,{24,24},{675,875}},{1,{24,24},{375,975}},{1,{24,24},{125,25}},{1,{24,24},{725,825}},{1,{24,24},{25,175}},{1,{24,24},{150,950}},{1,{24,24},{825,575}},{1,{24,24},{850,575}},{1,{24,24},{950,625}},{1,{24,24},{750,250}},{1,{24,24},{800,750}},{1,{24,24},{675,425}},{1,{24,24},{375,575}},{1,{24,24},{900,50}},{1,{24,24},{825,725}},{1,{24,24},{575,400}},{2,{24,24},{250,200}},{2,{24,24},{300,125}},{1,{24,24},{425,750}},{1,{24,24},{525,200}},{1,{24,24},{475,400}},{1,{24,24},{500,450}},{1,{24,24},{100,625}},{1,{24,24},{75,75}},{1,{24,24},{925,625}},{1,{24,24},{875,125}},{1,{24,24},{550,975}},{1,{24,24},{575,0}},{1,{24,24},{550,400}},{1,{24,24},{125,150}},{1,{24,24},{300,100}},{1,{24,24},{950,250}},{2,{24,24},{25,250}},{1,{24,24},{625,900}},{1,{24,24},{650,875}},{1,{24,24},{75,825}},{1,{24,24},{700,825}},{1,{24,24},{200,275}},{1,{24,24},{675,675}},{1,{24,24},{825,325}},{1,{24,24},{725,775}},{1,{24,24},{875,75}},{1,{24,24},{625,825}},{1,{24,24},{325,600}},{1,{24,24},{700,875}},{1,{24,24},{600,500}},{1,{24,24},{400,775}},{1,{24,24},{900,625}},{1,{24,24},{800,125}},{1,{24,24},{925,600}},{1,{24,24},{950,575}},{1,{24,24},{975,550}},{1,{24,24},{150,150}},{1,{24,24},{50,825}},{1,{24,24},{675,900}},{1,{24,24},{575,925}},{1,{24,24},{625,875}},{1,{24,24},{650,850}},{1,{24,24},{900,850}},{1,{24,24},{900,425}},{1,{24,24},{725,800}},{1,{24,24},{125,775}},{1,{24,24},{450,475}},{1,{24,24},{500,250}},{1,{24,24},{150,225}},{1,{24,24},{250,875}},{1,{24,24},{900,325}},{1,{24,24},{650,0}},{1,{24,24},{75,150}},{1,{24,24},{700,800}},{1,{24,24},{775,725}},{1,{24,24},{550,0}},{1,{24,24},{150,525}},{1,{24,24},{800,700}},{1,{24,24},{375,175}},{1,{24,24},{150,575}},{1,{24,24},{250,350}},{1,{24,24},{275,400}},{2,{24,24},{450,0}},{1,{24,24},{875,625}},{1,{24,24},{950,550}},{1,{24,24},{525,950}},{1,{24,24},{525,375}},{1,{24,24},{600,875}},{1,{24,24},{625,850}},{1,{24,24},{125,300}},{1,{24,24},{500,525}},{1,{24,24},{675,800}},{1,{24,24},{250,925}},{1,{24,24},{350,250}},{2,{24,24},{200,100}},{1,{24,24},{650,650}},{1,{24,24},{225,600}},{1,{24,24},{550,725}},{2,{24,24},{75,325}},{1,{24,24},{0,575}},{1,{24,24},{950,600}},{1,{24,24},{875,0}},{1,{24,24},{25,625}},{1,{24,24},{375,800}},{1,{24,24},{325,900}},{1,{24,24},{925,550}},{1,{24,24},{825,275}},{1,{24,24},{725,925}},{1,{24,24},{575,875}},{1,{24,24},{600,850}},{1,{24,24},{750,775}},{1,{24,24},{775,300}},{1,{24,24},{650,800}},{1,{24,24},{250,675}},{1,{24,24},{425,550}},{1,{24,24},{0,75}},{1,{24,24},{700,300}},{1,{24,24},{50,775}},{1,{24,24},{150,325}},{1,{24,24},{700,750}},{1,{24,24},{175,275}},{1,{24,24},{400,950}},{1,{24,24},{600,25}},{1,{24,24},{250,325}},{1,{24,24},{750,175}},{1,{24,24},{725,725}},{1,{24,24},{350,750}},{1,{24,24},{750,700}},{1,{24,24},{825,625}},{1,{24,24},{800,650}},{1,{24,24},{275,575}},{1,{24,24},{850,600}},{1,{24,24},{925,300}},{1,{24,24},{200,750}},{1,{24,24},{875,575}},{1,{24,24},{175,775}},{1,{24,24},{850,425}},{1,{24,24},{525,925}},{1,{24,24},{200,575}},{1,{24,24},{200,525}},{1,{24,24},{450,175}},{1,{24,24},{25,25}},{1,{24,24},{350,0}},{1,{24,24},{575,700}},{1,{24,24},{925,525}},{1,{24,24},{175,550}},{1,{24,24},{950,500}},{1,{24,24},{300,400}},{1,{24,24},{0,750}},{1,{24,24},{325,525}},{1,{24,24},{450,850}},{1,{24,24},{175,425}},{1,{24,24},{450,975}},{1,{24,24},{25,500}},{1,{24,24},{100,75}},{1,{24,24},{500,925}},{2,{24,24},{250,150}},{1,{24,24},{875,950}},{1,{24,24},{650,775}},{1,{24,24},{675,750}},{1,{24,24},{575,850}},{1,{24,24},{0,650}},{1,{24,24},{800,625}},{1,{24,24},{875,550}},{1,{24,24},{900,525}},{1,{24,24},{525,525}},{1,{24,24},{925,500}},{1,{24,24},{50,675}},{2,{24,24},{200,175}},{1,{24,24},{275,125}},{1,{24,24},{675,700}},{1,{24,24},{750,800}},{1,{24,24},{375,150}},{1,{24,24},{275,650}},{1,{24,24},{425,975}},{1,{24,24},{525,25}},{1,{24,24},{500,900}},{1,{24,24},{475,925}},{1,{24,24},{950,125}},{1,{24,24},{875,925}},{1,{24,24},{425,50}},{1,{24,24},{325,725}},{1,{24,24},{175,150}},{1,{24,24},{225,200}},{1,{24,24},{75,925}},{1,{24,24},{500,225}},{1,{24,24},{500,325}},{1,{24,24},{275,50}},{1,{24,24},{750,975}},{1,{24,24},{700,700}},{1,{24,24},{600,700}},{1,{24,24},{650,225}},{1,{24,24},{300,850}},{1,{24,24},{800,600}},{1,{24,24},{575,825}},{1,{24,24},{875,525}},{1,{24,24},{625,775}},{1,{24,24},{925,400}},{2,{24,24},{0,75}},{1,{24,24},{450,300}},{1,{24,24},{750,550}},{1,{24,24},{450,925}},{1,{24,24},{875,300}},{1,{24,24},{325,775}},{1,{24,24},{900,375}},{1,{24,24},{425,875}},{1,{24,24},{250,650}},{1,{24,24},{425,575}},{1,{24,24},{750,900}},{1,{24,24},{525,850}},{1,{24,24},{575,800}},{1,{24,24},{550,475}},{1,{24,24},{875,800}},{1,{24,24},{450,825}},{1,{24,24},{675,75}},{1,{24,24},{675,575}},{1,{24,24},{800,300}},{1,{24,24},{450,75}},{1,{24,24},{950,850}},{1,{24,24},{650,725}},{1,{24,24},{975,300}},{2,{24,24},{25,175}},{1,{24,24},{300,175}},{1,{24,24},{125,850}},{2,{24,24},{200,0}},{1,{24,24},{550,50}},{1,{24,24},{525,150}},{1,{24,24},{775,600}},{1,{24,24},{325,450}},{1,{24,24},{800,575}},{1,{24,24},{825,550}},{1,{24,24},{375,25}},{1,{24,24},{850,525}},{1,{24,24},{875,500}},{1,{24,24},{425,0}},{1,{24,24},{550,775}},{1,{24,24},{125,675}},{1,{24,24},{950,25}},{1,{24,24},{975,400}},{1,{24,24},{875,375}},{1,{24,24},{125,725}},{1,{24,24},{450,900}},{1,{24,24},{475,875}},{1,{24,24},{300,500}},{1,{24,24},{525,825}},{1,{24,24},{250,200}},{1,{24,24},{650,550}},{2,{24,24},{375,75}},{1,{24,24},{975,600}},{1,{24,24},{300,750}},{1,{24,24},{725,625}},{1,{24,24},{800,550}},{1,{24,24},{225,800}},{1,{24,24},{775,575}},{1,{24,24},{850,500}},{1,{24,24},{650,450}},{1,{24,24},{875,475}},{1,{24,24},{475,150}},{1,{24,24},{450,675}},{1,{24,24},{900,450}},{1,{24,24},{225,375}},{1,{24,24},{825,525}},{1,{24,24},{50,200}},{1,{24,24},{925,425}},{1,{24,24},{950,400}},{1,{24,24},{475,700}},{1,{24,24},{250,625}},{1,{24,24},{975,375}},{1,{24,24},{375,950}},{1,{24,24},{175,600}},{1,{24,24},{350,975}},{1,{24,24},{800,500}},{1,{24,24},{825,925}},{1,{24,24},{350,950}},{1,{24,24},{450,875}},{1,{24,24},{350,475}},{1,{24,24},{825,675}},{1,{24,24},{375,425}},{1,{24,24},{725,425}},{1,{24,24},{750,425}},{1,{24,24},{225,550}},{1,{24,24},{125,550}},{1,{24,24},{75,600}},{1,{24,24},{950,425}},{1,{24,24},{125,200}},{1,{24,24},{975,250}},{1,{24,24},{25,375}},{1,{24,24},{600,725}},{1,{24,24},{625,50}},{1,{24,24},{775,100}},{1,{24,24},{550,425}},{1,{24,24},{925,200}},{1,{24,24},{850,75}},{1,{24,24},{600,525}},{1,{24,24},{725,250}},{2,{24,24},{100,75}},{1,{24,24},{775,550}},{1,{24,24},{250,0}},{1,{24,24},{225,425}},{1,{24,24},{450,375}},{1,{24,24},{825,500}},{1,{24,24},{875,450}},{1,{24,24},{375,875}},{1,{24,24},{925,475}},{1,{24,24},{975,350}},{1,{24,24},{400,500}},{1,{24,24},{375,850}},{1,{24,24},{550,675}},{1,{24,24},{400,900}},{1,{24,24},{700,500}},{1,{24,24},{500,825}},{1,{24,24},{475,825}},{1,{24,24},{825,775}},{1,{24,24},{550,750}},{1,{24,24},{375,775}},{1,{24,24},{200,825}},{1,{24,24},{750,650}},{1,{24,24},{125,575}},{1,{24,24},{700,850}},{1,{24,24},{125,350}},{1,{24,24},{375,500}},{1,{24,24},{675,625}},{1,{24,24},{425,625}},{1,{24,24},{425,950}},{1,{24,24},{200,75}},{1,{24,24},{825,475}},{1,{24,24},{400,925}},{2,{24,24},{100,250}},{1,{24,24},{250,300}},{1,{24,24},{875,425}},{1,{24,24},{775,750}},{1,{24,24},{0,375}},{1,{24,24},{300,650}},{1,{24,24},{350,700}},{1,{24,24},{150,500}},{1,{24,24},{325,950}},{1,{24,24},{350,925}},{1,{24,24},{425,850}},{1,{24,24},{525,750}},{1,{24,24},{500,775}},{1,{24,24},{600,675}},{2,{24,24},{25,100}},{1,{24,24},{200,50}},{1,{24,24},{675,600}},{1,{24,24},{725,550}},{1,{24,24},{550,575}},{1,{24,24},{275,75}},{1,{24,24},{825,450}},{1,{24,24},{925,350}},{1,{24,24},{950,325}},{1,{24,24},{400,250}},{1,{24,24},{950,200}},{1,{24,24},{250,25}},{1,{24,24},{325,925}},{1,{24,24},{675,650}},{2,{24,24},{200,225}},{1,{24,24},{275,975}},{1,{24,24},{425,475}},{1,{24,24},{475,775}},{1,{24,24},{525,725}},{1,{24,24},{150,850}},{1,{24,24},{550,700}},{1,{24,24},{650,600}},{1,{24,24},{75,700}},{1,{24,24},{750,500}},{1,{24,24},{875,700}},{1,{24,24},{925,175}},{1,{24,24},{75,900}},{1,{24,24},{0,450}},{1,{24,24},{800,450}},{1,{24,24},{200,950}},{1,{24,24},{950,300}},{1,{24,24},{975,275}},{1,{24,24},{975,850}},{1,{24,24},{150,50}},{1,{24,24},{0,50}},{1,{24,24},{875,600}},{1,{24,24},{50,125}},{1,{24,24},{350,875}},{1,{24,24},{25,75}},{1,{24,24},{500,725}},{1,{24,24},{675,200}},{1,{24,24},{25,675}},{1,{24,24},{525,450}},{1,{24,24},{400,325}},{1,{24,24},{275,175}},{1,{24,24},{150,825}},{1,{24,24},{375,925}},{1,{24,24},{700,375}},{1,{24,24},{550,275}},{1,{24,24},{600,625}},{1,{24,24},{700,150}},{1,{24,24},{625,600}},{1,{24,24},{650,575}},{1,{24,24},{125,250}},{1,{24,24},{0,950}},{1,{24,24},{475,650}},{1,{24,24},{600,275}},{1,{24,24},{575,100}},{1,{24,24},{575,275}},{1,{24,24},{775,450}},{1,{24,24},{700,525}},{1,{24,24},{800,425}},{1,{24,24},{975,975}},{1,{24,24},{0,300}},{1,{24,24},{875,350}},{1,{24,24},{675,375}},{1,{24,24},{525,600}},{1,{24,24},{150,700}},{1,{24,24},{525,225}},{1,{24,24},{225,975}},{1,{24,24},{250,950}},{1,{24,24},{700,450}},{1,{24,24},{275,925}},{1,{24,24},{375,375}},{1,{24,24},{300,450}},{1,{24,24},{350,850}},{1,{24,24},{700,175}},{1,{24,24},{950,275}},{1,{24,24},{825,400}},{1,{24,24},{350,50}},{1,{24,24},{925,25}},{1,{24,24},{400,800}},{1,{24,24},{500,275}},{1,{24,24},{450,750}},{2,{24,24},{50,25}},{1,{24,24},{975,150}},{1,{24,24},{625,350}},{1,{24,24},{525,675}},{1,{24,24},{200,775}},{1,{24,24},{650,100}},{1,{24,24},{550,650}},{1,{24,24},{525,625}},{1,{24,24},{625,575}},{1,{24,24},{600,600}},{1,{24,24},{0,875}},{1,{24,24},{675,525}},{1,{24,24},{675,350}},{1,{24,24},{475,0}},{1,{24,24},{150,75}},{1,{24,24},{550,800}},{1,{24,24},{125,375}},{1,{24,24},{150,900}},{1,{24,24},{900,250}},{1,{24,24},{850,350}},{1,{24,24},{275,375}},{1,{24,24},{875,325}},{1,{24,24},{450,100}},{1,{24,24},{0,250}},{1,{24,24},{600,925}},{1,{24,24},{900,300}},{1,{24,24},{450,200}},{1,{24,24},{275,900}},{1,{24,24},{650,475}},{1,{24,24},{250,400}},{1,{24,24},{150,425}},{1,{24,24},{600,250}},{1,{24,24},{175,725}},{1,{24,24},{850,625}},{1,{24,24},{325,225}},{1,{24,24},{225,500}},{1,{24,24},{900,650}},{1,{24,24},{450,725}},{1,{24,24},{550,175}},{1,{24,24},{550,125}},{1,{24,24},{125,600}},{1,{24,24},{0,200}},{1,{24,24},{150,100}},{1,{24,24},{525,650}},{1,{24,24},{550,625}},{1,{24,24},{625,550}},{1,{24,24},{250,850}},{1,{24,24},{700,475}},{1,{24,24},{825,350}},{1,{24,24},{25,600}},{1,{24,24},{375,325}},{1,{24,24},{700,0}},{1,{24,24},{125,925}},{1,{24,24},{450,625}},{1,{24,24},{600,75}},{1,{24,24},{550,100}},{1,{24,24},{100,225}},{1,{24,24},{350,775}},{1,{24,24},{675,100}},{1,{24,24},{450,275}},{1,{24,24},{875,850}},{1,{24,24},{400,625}},{1,{24,24},{975,200}},{1,{24,24},{825,425}},{1,{24,24},{175,650}},{1,{24,24},{100,850}},{1,{24,24},{950,700}},{1,{24,24},{175,125}},{1,{24,24},{100,50}},{1,{24,24},{775,625}},{1,{24,24},{125,50}},{1,{24,24},{850,150}},{1,{24,24},{50,25}},{1,{24,24},{325,825}},{1,{24,24},{350,800}},{1,{24,24},{400,750}},{1,{24,24},{275,875}},{1,{24,24},{300,125}},{1,{24,24},{800,0}},{1,{24,24},{650,950}},{1,{24,24},{550,550}},{1,{24,24},{500,650}},{1,{24,24},{325,475}},{1,{24,24},{475,725}},{2,{24,24},{125,0}},{1,{24,24},{475,600}},{1,{24,24},{425,650}},{2,{24,24},{150,50}},{1,{24,24},{200,300}},{1,{24,24},{850,300}},{1,{24,24},{0,100}},{1,{24,24},{925,225}},{1,{24,24},{325,275}},{1,{24,24},{775,25}},{1,{24,24},{500,75}},{1,{24,24},{100,825}},{1,{24,24},{725,975}},{1,{24,24},{375,275}},{1,{24,24},{775,425}},{1,{24,24},{300,525}},{1,{24,24},{575,25}},{1,{24,24},{275,850}},{1,{24,24},{575,200}},{1,{24,24},{300,825}},{1,{24,24},{725,650}},{2,{24,24},{225,100}},{1,{24,24},{675,550}},{1,{24,24},{500,625}},{1,{24,24},{800,475}},{2,{24,24},{275,50}},{1,{24,24},{800,325}},{1,{24,24},{850,275}},{1,{24,24},{975,125}},{1,{24,24},{875,250}},{1,{24,24},{950,175}},{1,{24,24},{275,825}},{1,{24,24},{800,375}},{1,{24,24},{600,225}},{1,{24,24},{850,650}},{1,{24,24},{375,400}},{1,{24,24},{225,0}},{1,{24,24},{275,25}},{1,{24,24},{750,300}},{2,{24,24},{150,200}},{1,{24,24},{475,200}},{1,{24,24},{475,625}},{1,{24,24},{400,225}},{2,{24,24},{25,0}},{1,{24,24},{225,50}},{1,{24,24},{475,675}},{1,{24,24},{600,200}},{1,{24,24},{375,250}},{1,{24,24},{475,375}},{1,{24,24},{450,650}},{1,{24,24},{350,500}},{1,{24,24},{650,825}},{1,{24,24},{925,100}},{1,{24,24},{300,600}},{1,{24,24},{200,225}},{1,{24,24},{125,875}},{1,{24,24},{25,125}},{1,{24,24},{150,925}},{1,{24,24},{225,325}},{1,{24,24},{700,100}},{1,{24,24},{525,300}},{1,{24,24},{175,900}},{1,{24,24},{150,375}},{1,{24,24},{200,875}},{1,{24,24},{800,250}},{1,{24,24},{300,575}},{1,{24,24},{850,250}},{1,{24,24},{75,25}},{1,{24,24},{675,0}},{2,{24,24},{225,75}},{1,{24,24},{325,675}},{1,{24,24},{800,525}},{1,{24,24},{300,775}},{1,{24,24},{350,725}},{1,{24,24},{225,775}},{1,{24,24},{650,525}},{1,{24,24},{675,475}},{1,{24,24},{375,700}},{1,{24,24},{350,200}},{1,{24,24},{25,900}},{1,{24,24},{525,550}},{1,{24,24},{375,125}},{1,{24,24},{625,525}},{1,{24,24},{575,500}},{1,{24,24},{600,475}},{1,{24,24},{250,525}},{1,{24,24},{925,75}},{1,{24,24},{200,125}},{1,{24,24},{675,400}},{1,{24,24},{500,700}},{1,{24,24},{275,750}},{1,{24,24},{450,600}},{1,{24,24},{25,50}},{1,{24,24},{675,300}},{1,{24,24},{900,175}},{1,{24,24},{350,75}},{1,{24,24},{525,875}},{1,{24,24},{725,875}},{1,{24,24},{725,475}},{1,{24,24},{250,50}},{2,{24,24},{100,0}},{1,{24,24},{900,925}},{2,{24,24},{50,400}},{1,{24,24},{250,800}},{1,{24,24},{750,75}},{1,{24,24},{550,350}},{1,{24,24},{800,175}},{1,{24,24},{825,75}},{1,{24,24},{275,775}},{1,{24,24},{300,975}},{1,{24,24},{350,125}},{1,{24,24},{475,125}},{1,{24,24},{125,450}},{1,{24,24},{725,0}},{1,{24,24},{750,600}},{1,{24,24},{250,475}},{1,{24,24},{350,350}},{1,{24,24},{375,675}},{1,{24,24},{725,350}},{1,{24,24},{725,575}},{1,{24,24},{550,25}},{1,{24,24},{750,325}},{1,{24,24},{500,550}},{1,{24,24},{0,25}},{1,{24,24},{575,475}},{1,{24,24},{700,350}},{1,{24,24},{400,700}},{1,{24,24},{825,225}},{1,{24,24},{850,200}},{1,{24,24},{875,175}},{1,{24,24},{50,725}},{1,{24,24},{300,0}},{1,{24,24},{475,425}},{1,{24,24},{875,750}},{1,{24,24},{150,875}},{1,{24,24},{225,300}},{1,{24,24},{350,100}},{1,{24,24},{325,700}},{1,{24,24},{175,250}},{1,{24,24},{375,650}},{1,{24,24},{475,550}},{1,{24,24},{350,675}},{1,{24,24},{300,625}},{1,{24,24},{900,200}},{1,{24,24},{600,425}},{1,{24,24},{450,425}},{1,{24,24},{650,375}},{1,{24,24},{625,25}},{1,{24,24},{50,550}},{1,{24,24},{625,250}},{1,{24,24},{500,100}},{1,{24,24},{500,175}},{1,{24,24},{250,450}},{2,{24,24},{175,100}},{1,{24,24},{975,875}},{1,{24,24},{100,950}},{1,{24,24},{825,200}},{1,{24,24},{650,175}},{1,{24,24},{850,175}},{1,{24,24},{325,75}},{1,{24,24},{300,800}},{1,{24,24},{175,575}},{1,{24,24},{900,125}},{1,{24,24},{300,275}},{1,{24,24},{100,900}},{1,{24,24},{375,100}},{1,{24,24},{175,825}},{1,{24,24},{175,300}},{1,{24,24},{250,750}},{1,{24,24},{275,250}},{1,{24,24},{400,175}},{1,{24,24},{925,975}},{1,{24,24},{300,700}},{1,{24,24},{550,450}},{2,{24,24},{350,50}},{1,{24,24},{775,925}},{1,{24,24},{675,150}},{1,{24,24},{500,875}},{1,{24,24},{475,525}},{1,{24,24},{500,500}},{1,{24,24},{575,425}},{1,{24,24},{625,375}},{1,{24,24},{725,275}},{1,{24,24},{600,300}},{1,{24,24},{275,200}},{1,{24,24},{350,425}},{1,{24,24},{775,225}},{1,{24,24},{800,200}},{1,{24,24},{675,325}},{1,{24,24},{800,675}},{1,{24,24},{725,500}},{1,{24,24},{975,25}},{1,{24,24},{0,975}},{1,{24,24},{450,325}},{1,{24,24},{175,200}},{1,{24,24},{575,525}},{1,{24,24},{225,275}},{1,{24,24},{350,25}},{1,{24,24},{700,550}},{1,{24,24},{100,875}},{1,{24,24},{325,250}},{1,{24,24},{175,800}},{1,{24,24},{250,725}},{1,{24,24},{850,100}},{1,{24,24},{300,675}},{1,{24,24},{325,650}},{1,{24,24},{800,50}},{1,{24,24},{375,600}},{1,{24,24},{675,775}},{1,{24,24},{425,250}},{1,{24,24},{575,225}},{1,{24,24},{325,500}},{1,{24,24},{475,175}},{1,{24,24},{400,575}},{1,{24,24},{125,650}},{1,{24,24},{75,275}},{1,{24,24},{600,375}},{1,{24,24},{725,600}},{1,{24,24},{750,150}},{1,{24,24},{925,50}},{1,{24,24},{850,125}},{1,{24,24},{75,875}},{1,{24,24},{525,350}},{1,{24,24},{175,625}},{1,{24,24},{250,700}},{1,{24,24},{100,150}},{1,{24,24},{175,400}},{1,{24,24},{275,675}},{1,{24,24},{275,475}},{1,{24,24},{450,800}},{1,{24,24},{250,100}},{1,{24,24},{400,550}},{1,{24,24},{575,350}},{1,{24,24},{275,500}},{1,{24,24},{475,475}},{1,{24,24},{75,550}},{1,{24,24},{900,800}},{1,{24,24},{575,950}},{1,{24,24},{475,950}},{1,{24,24},{575,375}},{1,{24,24},{650,300}},{1,{24,24},{675,275}},{1,{24,24},{725,225}},{1,{24,24},{775,175}},{1,{24,24},{825,125}},{1,{24,24},{250,375}},{1,{24,24},{800,150}},{1,{24,24},{325,200}},{1,{24,24},{125,800}},{1,{24,24},{725,400}},{1,{24,24},{375,550}},{2,{24,24},{25,200}},{1,{24,24},{50,850}},{1,{24,24},{525,400}},{1,{24,24},{175,975}},{2,{24,24},{0,250}},{2,{24,24},{50,350}},{1,{24,24},{400,350}},{1,{24,24},{150,0}},{1,{24,24},{925,0}},{1,{24,24},{25,875}},{1,{24,24},{950,350}},{2,{24,24},{125,125}},{1,{24,24},{350,225}},{1,{24,24},{325,575}},{1,{24,24},{375,525}},{1,{24,24},{225,725}},{1,{24,24},{125,325}},{1,{24,24},{325,0}},{1,{24,24},{675,975}},{1,{24,24},{150,550}},{1,{24,24},{25,325}},{1,{24,24},{650,200}},{1,{24,24},{650,250}},{1,{24,24},{725,175}},{1,{24,24},{900,75}},{1,{24,24},{775,125}},{1,{24,24},{25,475}},{1,{24,24},{875,25}},{1,{24,24},{275,425}},{1,{24,24},{725,150}},{1,{24,24},{850,50}},{1,{24,24},{525,975}},{1,{24,24},{100,775}},{1,{24,24},{200,675}},{1,{24,24},{325,550}},{1,{24,24},{550,225}},{1,{24,24},{75,625}},{2,{24,24},{75,375}},{1,{24,24},{625,400}},{1,{24,24},{900,100}},{2,{24,24},{50,200}},{1,{24,24},{825,50}},{1,{24,24},{75,775}},{1,{24,24},{750,625}},{1,{24,24},{225,625}},{1,{24,24},{150,175}},{1,{24,24},{750,350}},{1,{24,24},{875,825}},{1,{24,24},{200,975}},{1,{24,24},{350,625}},{1,{24,24},{825,25}},{1,{24,24},{0,675}},{1,{24,24},{50,700}},{1,{24,24},{0,825}},{1,{24,24},{125,700}},{1,{24,24},{750,725}},{1,{24,24},{375,450}},{1,{24,24},{575,250}},{1,{24,24},{950,475}},{1,{24,24},{575,125}},{1,{24,24},{550,200}},{1,{24,24},{50,750}},{1,{24,24},{150,650}},{1,{24,24},{100,25}},{1,{24,24},{250,550}},{1,{24,24},{275,525}},{1,{24,24},{525,275}},{1,{24,24},{325,400}},{1,{24,24},{950,225}},{1,{24,24},{550,250}},{1,{24,24},{700,400}},{1,{24,24},{325,875}},{1,{24,24},{150,475}},{1,{24,24},{575,675}},{1,{24,24},{150,625}},{1,{24,24},{650,425}},{1,{24,24},{300,475}},{1,{24,24},{50,525}},{1,{24,24},{525,250}},{1,{24,24},{600,175}},{1,{24,24},{675,50}},{1,{24,24},{725,50}},{1,{24,24},{750,25}},{1,{24,24},{125,225}},{1,{24,24},{0,500}},{1,{24,24},{475,850}},{1,{24,24},{200,550}},{1,{24,24},{0,150}},{1,{24,24},{125,475}},{1,{24,24},{400,475}},{1,{24,24},{350,600}},{1,{24,24},{350,400}},{1,{24,24},{625,175}},{1,{24,24},{275,150}},{1,{24,24},{875,50}},{1,{24,24},{575,175}},{1,{24,24},{700,50}},{1,{24,24},{50,100}},{1,{24,24},{800,25}},{1,{24,24},{350,375}},{1,{24,24},{450,350}},{1,{24,24},{225,225}},{1,{24,24},{650,75}},{1,{24,24},{0,700}},{1,{24,24},{0,475}},{1,{24,24},{625,325}},{1,{24,24},{600,100}},{1,{24,24},{525,800}},{1,{24,24},{900,275}},{1,{24,24},{250,825}},{1,{24,24},{325,325}},{1,{24,24},{150,350}},{1,{24,24},{300,950}},{1,{24,24},{750,750}},{1,{24,24},{0,625}},{2,{24,24},{125,75}},{1,{24,24},{325,300}},{1,{24,24},{350,275}},{1,{24,24},{850,850}},{1,{24,24},{625,0}},{1,{24,24},{0,600}},{1,{24,24},{25,575}},{1,{24,24},{575,50}},{1,{24,24},{175,950}},{1,{24,24},{600,0}},{1,{24,24},{75,175}},{1,{24,24},{425,350}},{1,{24,24},{275,300}},{1,{24,24},{50,225}},{1,{24,24},{475,575}},{1,{24,24},{275,950}},{1,{24,24},{400,25}},{1,{24,24},{500,575}},{1,{24,24},{0,525}},{1,{24,24},{950,925}},{1,{24,24},{350,175}},{1,{24,24},{125,625}},{1,{24,24},{175,325}},{1,{24,24},{425,75}},{1,{24,24},{25,450}},{1,{24,24},{250,775}},{1,{24,24},{100,975}},{1,{24,24},{925,675}},{1,{24,24},{200,175}},{2,{24,24},{225,125}},{1,{24,24},{225,75}},{1,{24,24},{125,100}}}}}
+local icons = {{"align-vertical-distribute-center","chevron-down","list-restart","table-cells-split","gavel","dna-off","refresh-ccw-dot","venus","bean","circle-question-mark","folder-code","bolt","heater","feather","align-horizontal-distribute-center","grip-vertical","pill-bottle","person-standing","badge-swiss-franc","between-horizontal-end","file-braces-corner","rotate-cw","house-plus","bus-front","shield-ellipsis","between-vertical-end","globe-lock","tags","concierge-bell","bookmark-minus","file-down","picture-in-picture","messages-square","scissors","file-check-corner","phone-call","anchor","hand-helping","text-wrap","birdhouse","wifi-off","cloud-alert","message-square","cloud-download","folder-plus","cctv-off","mirror-round","user-round","pointer","between-horizontal-start","chevrons-up-down","brush","message-circle-more","parentheses","book-up-2","flame","chevrons-up","square-dashed","square-mouse-pointer","superscript","signal","wifi-cog","hexagon","navigation-2-off","eye-off","arrows-up-from-line","file-code-corner","square-centerline-dashed-horizontal","panels-right-bottom","scaling","hash","arrow-left-from-line","ship","ticket-percent","calendar-clock","x","non-binary","voicemail","presentation","tree-palm","badge","captions-off","align-vertical-justify-center","download","mouse-right","lens-convex","focus","diamond-percent","arrow-big-up","volume-x","mouse-pointer-click","face-slightly-smiling-plus","hard-drive","grid-2x2-x","package-minus","cloud","pipette","corner-left-down","badge-cent","cloud-lightning","user-round-pen","arrow-left-to-line","book-open-text","monitor-cloud","parking-meter","cat","heart-handshake","dam","trees","ham","circle-pause","chess-king","bean-off","rat","separator-horizontal","ambulance","signal-zero","citrus","phone-missed","calendar-off","chart-column","battery-medium","square-minus","star-check","decimals-arrow-left","folder-output","menu","image-down","terminal","circle-dot-dashed","medal","cake-slice","git-graph","armchair","tickets","qr-code","copy","goal","trending-down","creative-commons","layers-arrow-down","ev-charger","user-star","road","nfc","align-center-horizontal","car","notebook-tabs","ear","videotape","sun-moon","chart-scatter","podium","toolbox","calendar","calendar-cog","gallery-horizontal","clipboard-x","list-sort-ascending","book-open","circle-pile","rectangle-ellipsis","badge-plus","badge-info","file-headphone","bow-arrow","clipboard-pen-line","user-round-key","folder-search","utensils-crossed","arrow-up","arrow-up-from-dot","align-vertical-justify-start","layers-minus","pause","shrub","flag","biceps-flexed","align-horizontal-distribute-end","donut","calendar-plus-2","move-vertical","file-pen-line","badge-russian-ruble","radius","pilcrow","corner-left-up","georgian-lari","cable","book-user","square-arrow-down","circle-plus","view","cctv","circle-arrow-left","square-off","octagon-alert","panel-bottom-dashed","book-a","align-end-vertical","thumbs-up","globe","rabbit","layers-plus","banknote-arrow-down","message-square-off","dice-4","message-circle-x","folder-x","message-circle-warning","map","move","arrow-up-left","award","arrow-down-wide-narrow","unfold-horizontal","lens-concave","motorbike","music-4","shield-x","file-volume","disc-3","file-signal","columns-4","archive-x","square-dashed-kanban","mouse-pointer-2","clock-arrow-up","clock-fading","pencil-sparkles","vegan","star-plus","message-circle-plus","credit-card-plus","fast-forward","user-pen","chess-knight","wifi-pen","files","send-to-back","alarm-clock","shopping-basket","send","brush-cleaning","skip-back","book-audio","file-scan","midi-port","message-square-dashed","chevrons-left","umbrella","skip-forward","clipboard-copy","map-pin-off","arrow-up-from-line","circle-chevron-up","circle-small","align-vertical-space-between","lamp-desk","circle-arrow-up","zap","beaker","paintbrush","broccoli","chevron-up","pen-tool","database-check","form","pencil-ruler","dna","arrow-big-down-dash","chart-area","bug-off","card-sim","map-pin-search","eye-dashed","ellipse","spell-check","popcorn","blocks","layer-arrow-up","microchip","badge-minus","cloud-sun","circle","shield-alert","map-minus","separator-vertical","scan-square","ampersands","user-search","fence","square-user-round","sunrise","strikethrough","calendar-days","folder-bookmark","banknote-arrow-up","zoom-out","dollar-sign","message-square-quote","zoom-in","zodiac-virgo","list-chevrons-down-up","list-minus","cloud-hail","contact","eye-closed","app-window-mac","folder-lock","ellipsis","copy-check","zodiac-pisces","satellite","bookmark-plus","text-align-justify","folder-key","coffee","circle-power","zodiac-libra","hourglass","tickets-plane","folder-git","zodiac-leo","bomb","layers-2","battery-full","zodiac-gemini","user-minus","chart-gantt","folder-tree","command","badge-dollar-sign","align-start-vertical","briefcase-conveyor-belt","message-circle-question-mark","square-arrow-out-up-right","bluetooth-off","save","square-square","cannabis","zodiac-aries","book","grip-horizontal","circle-minus","audio-waveform","moon-star","arrow-down-narrow-wide","zodiac-aquarius","database-backup","wand","receipt-turkish-lira","robot-arm","calendar-minus-2","copy-minus","x-line-top","folder-input","book-image","stamp","mouse-left","tag-plus","shirt","infinity","server-off","move-up","worm","workflow","plug-2","wine-off","chess-rook","brackets","calendar-heart","list-ordered","wine","star-x","mic-off","wind-arrow-down","arrow-big-left","square-split-horizontal","joystick","phone-forwarded","clover","sun-snow","sofa","wifi-sync","square-arrow-out-up-left","funnel-x","wifi-high","clock-2","calendar-fold","fish-off","baby","database-x","fold-vertical","wifi","hop","face-angry","van","cigarette","minus","wheat-off","wheat","diamond-plus","weight-tilde","file-chart-column","triangle-dashed","git-pull-request-closed","badge-check","weight","shrimp","layers-arrow-up","plug-zap","heading-4","chess-queen","graduation-cap","grid-3x2","zodiac-sagittarius","webcam-off","square-dashed-bottom-code","clock-7","ethernet-port","scan-text","webcam","shower-head","equal-not","waypoints","move-down","clock-arrow-down","ticket-slash","ruler","waves-vertical","waves-ladder","circle-user-round","waves-horizontal","settings-2","list-filter","map-pin-check","egg-off","waves-arrow-down","cog","dog","watch","swords","spotlight","panel-right-dashed","washing-machine","paper-bag","truck-electric","house-wifi","check-line","wand-sparkles","bubbles","bot","chart-bar-increasing","wallpaper","playing-card","air-vent","wallet-minimal","dot","wallet-cards","wallet","file-symlink","clipboard-paste","chevron-last","book-heart","vote","circle-parking","globe-check","cloud-check","panel-left","circle-chevron-right","volume-off","search-alert","squares-unite","arrow-down-up","git-fork","forward","brain-circuit","between-vertical-start","database","panel-right","volume-1","volume","volleyball","log-out","git-branch-plus","clipboard-minus","file-text","touchpad","video","ship-wheel","table-rows-split","milk-off","tv-minimal","cloud-upload","banknote","vibrate","message-circle-dashed-check","drumstick","venus-and-mars","calendar-search","pound-sterling","map-pin-x-inside","bell-ring","circle-chevron-left","vector-polygon","arrow-down","arrow-up-down","folder-dot","vault","badge-x","whole-word","monitor","disc-2","trending-up-down","utility-pole","user-shield","utensils","tv-minimal-play","circle-stop","align-vertical-space-around","users-round","users","user-x","arrow-big-down","circle-parking-off","calendar-x-2","user-plus","move-diagonal-2","bandage","gallery-horizontal-end","panel-top-dashed","user-round-x","user-round-search","tram-front","message-square-plus","fuel","user-round-cog","audio-lines","user-round-check","user-round-arrow-left","user-lock","flip-vertical-2","rocket","user-key","ear-off","square-chart-gantt","save-check","shuffle","user","printer","megaphone-off","usb-c-port","arrow-big-right","section","file-clock","magnet","toy-brick","square-chevron-down","dice-1","drill","app-window","robot-vacuum","hand-metal","upload","spell-check-2","unplug","square","list-plus","unlink","rotate-ccw-key","university","chart-pie","ungroup","unfold-vertical","copy-slash","wind","undo-2","layout-panel-left","undo","circle-percent","underline","circle-arrow-out-down-right","square-x","italic","chart-column-increasing","umbrella-off","step-forward","type-outline","a-arrow-down","broom-sparkles","sticker","folder-minus","file-minus","flower","turntable","turkish-lira","truck","import","badge-turkish-lira","square-terminal","file-music","trophy","beef","route-off","file-user","folder-search-2","square-radical","triangle-alert","image-upscale","book-type","triangle","signpost-big","trending-up","cloudy","thermometer-snowflake","square-percent","tree-deciduous","navigation-off","arrow-left","car-taxi-front","trash-2","message-square-share","chevrons-right-left","transgender","chevron-left","train-front-tunnel","milestone","file-chart-column-increasing","traffic-cone","square-dimensions","face-slightly-smiling","align-end-horizontal","layer-arrow-down","equal","megaphone","calendar-x","tractor","tower-control","egg","receipt-swiss-franc","touchpad-off","ship-cargo","circle-pound-sterling","video-off","japanese-yen","torus","tornado","tool-case","library","file-terminal","circle-chevron-down","accessibility","toilet","square-library","amphora","salad","tally-2","toggle-left","timer-reset","pin-off","timer","sheet","circle-check-big","timeline","ticket-x","map-pinned","corner-down-left","circuit-board","square-dot","list-clock","save-plus","monitor-check","folder-open-dot","book-dashed","line-squiggle","thermometer-sun","bluetooth","tree-pine","receipt-indian-rupee","thermometer","theater","heading-3","text-quote","origami","text-cursor-input","flask-conical","text-cursor","funnel","square-star","folder-sync","ice-cream-cone","zodiac-ophiuchus","text-align-end","text-align-center","arrow-up-narrow-wide","fishing-hook","test-tubes","test-tube-diagonal","brick-wall-fire","frame","calendar-arrow-down","clock-12","star-minus","switch-camera","tent","images","lollipop","book-text","telescope","lamp-floor","file-plus-corner","image","iteration-cw","badge-euro","bike","angle","tangent","settings","list-chevrons-up-down","tally-3","calendar-minus","scan-box","option","banknote-check","scroll-text","server-plus","tag","tablets","tablet-smartphone","toggle-right","table-properties","ferris-wheel","camera-off","table-of-contents","table-columns-split","table-cells-merge","table-2","table","group","syringe","battery","cookie","tent-tree","swiss-franc","rectangle-horizontal","snail","sunset","sun-medium","bitcoin","sun-dim","battery-plus","database-search","school","file-diff","folder-open","subscript","stretch-vertical","spline-pointer","stretch-horizontal","axis-3d","mic-audio-lines","stone","binoculars","house-plug","sticky-note-x","chart-bar-stacked","rose","factory","mail-minus","git-commit-vertical","sticky-note-check","sticky-note","stethoscope","clipboard-pen","bottle-wine","alarm-clock-off","step-back","list","star-off","square-arrow-right","sandwich","badge-pound-sterling","bookmark-check","star","wrench-off","squirrel","a-arrow-up","clock-check","flag-off","squircle","vibrate-off","face-grinning","zodiac-cancer","squares-exclude","file-code","square-user","chart-column-big","square-text","monitor-pause","cassette-tape","battery-low","square-stack","square-split-vertical","signpost","square-slash","calendar-arrow-up","landmark","fish-symbol","square-sigma","loader","bold","dice-2","file-type","clipboard-clock","beer","lectern","square-scissors","square-round-corner","layers","binary","move-diagonal","square-plus","door-closed","square-play","layout-template","square-pilcrow","square-pi","monitor-off","bookmark-off","hand-heart","square-pause","scan-qr-code","message-square-check","iteration-ccw","square-parking","radar","brain","square-m","square-kanban","bed-single","key","clock-11","square-equal","ticket-plus","arrow-up-0-1","bell-electric","square-divide","heading","book-open-check","panel-top-close","lasso-select","soup","speech","puzzle","square-dashed-bottom","bus","square-code","audio-lines-x","chart-no-axes-gantt","file-spreadsheet","square-chevron-up","clipboard-list","pen-line","contact-round","square-chevron-left","keyboard-off","rewind","file-badge","battery-warning","mail-question-mark","arrow-down-from-line","briefcase","biohazard","rectangle-circle","braces","scale-3d","panel-top-bottom-dashed","mail-x","square-dashed-mouse-pointer","user-cog","lock-open","square-centerline-dashed-vertical","pizza","list-indent-decrease","arrow-up-wide-narrow","square-bottom-dashed-scissors","clock-5","square-asterisk","rotate-ccw","align-horizontal-justify-center","square-arrow-up-right","antenna","memory-stick","scan-eye","search","square-check","heart-plus","square-arrow-right-exit","map-pin-minus-inside","git-merge","gallery-vertical-end","square-arrow-right-enter","hand-coins","zodiac-capricorn","wifi-low","move-right","clock","file-pen","git-compare-arrows","cloud-sun-rain","align-horizontal-justify-start","square-arrow-out-down-left","headset","square-arrow-down-right","calendar-plus","git-commit-horizontal","arrow-down-z-a","bath","navigation-2","unlink-2","sprout","spray-can","folder-check","sport-shoe","book-key","ribbon","microwave","smartphone-nfc","gallery-vertical","shield-plus","folder","square-dashed-text","map-pin-pen","move-up-left","speaker","folder-heart","sparkles","sparkle","spade","arrow-up-a-z","file-up","square-dashed-top-solid","solar-panel","soap-dispenser-droplet","snowflake","swatch-book","receipt-cent","spool","folder-archive","folder-symlink","columns-3","ban","message-square-x","paint-roller","chevrons-left-right-ellipsis","archive","smartphone","sliders-vertical","building-2","circle-slash-2","sliders-horizontal","cake","cloud-rain","chart-bar","circle-play","wrench","skull","siren","signature","flag-triangle-right","signal-medium","signal-low","bell","keyboard","sigma","music-3","chart-bar-big","user-check","proportions","eject","plane","webhook-off","carrot","square-arrow-left","file-cog","circle-dashed","move-up-right","panels-left-bottom","shopping-bag","mailbox","squares-subtract","shield-user","shield-question-mark","split","list-sort-descending","shield-off","forklift","hand-platter","alarm-clock-minus","heart-x","eraser","book-marked","shield-lock","bluetooth-connected","rotate-ccw-square","chart-no-axes-column","cannabis-off","folder-kanban","shield-keyhole","mars-stroke","shield-half","shield-cog-corner","shield-cog","file-box","shield-check","paint-bucket","glass-water","shield-ban","glasses","piggy-bank","shield","cuboid","cloud-off","check-check","activity","axe","plane-takeoff","shelving-unit","cloud-rain-wind","shell","clipboard","copy-x","file-axis-3d","radical","chart-column-decreasing","share","bug-play","align-vertical-distribute-start","shapes","waves-arrow-up","tally-5","server-crash","server-cog","server","circle-divide","send-horizontal","search-x","search-slash","life-buoy","search-code","cloud-sync","volume-2","battery-charging","russian-ruble","square-arrow-up-left","brick-wall-shield","footprints","scroll","building","screen-share-off","screen-share","list-indent-increase","tag-x","book-alert","link-2","astroid","bell-minus","image-up","closed-caption","drum","arrow-up-z-a","sun","scan-search","pyramid","file-key","monitor-up","scan-face","scissors-line-dashed","scan-barcode","scan","ratio","ticket-check","combine","printer-check","save-off","mountain","mars","picture-in-picture-2","radio-off","flower-2","house-heart","squares-intersect","saudi-riyal","satellite-dish","keyboard-music","star-half","playing-cards-fan","code-xml","pencil-line","mails","brain-cog","tablet","sailboat","pi","trash","book-down","hdmi-port","trailer","case-upper","circle-fading-arrow-up","rows-4","croissant","rows-3","rows-2","barcode","router","route","bed","rectangle-vertical","divide","grape","rotate-cw-fading-clock","party-popper","file-chart-pie","rotate-ccw-clock","rotate-3d","dice-6","roller-coaster","blender","notepad-text","zap-off","square-check-big","link","reply","replace-all","laptop-minimal","replace","repeat-off","map-pin-minus","repeat-2","chart-spline","message-square-more","repeat-1","chart-candlestick","repeat","arrow-down-a-z","remove-formatting","regex","move-horizontal","file-sliders","refrigerator","refresh-cw-off","cup-soda","refresh-cw","power","sword","radio","redo","earth","slice","dice-3","milk","mouse-pointer-ban","crown","circle-slash","circle-star","rotate-cw-square","atom","package-x","bed-double","rectangle-goggles","circle-dot","file-exclamation-point","hand-fist","message-circle-code","folder-git-2","message-square-code","grip","towel-rack","receipt-russian-ruble","arrow-big-left-dash","circle-arrow-right","dumbbell","receipt-japanese-yen","receipt-euro","phone-incoming","scale","rainbow","flashlight","panel-top-open","panel-right-close","radio-receiver","notebook","redo-2","radiation","square-menu","quote","monitor-smartphone","laptop","scan-line","clock-4","square-arrow-up","book-minus","file-question-mark","projector","line-dot-right-horizontal","save-pen","arrow-down-to-line","power-off","refresh-ccw","venetian-mask","calendar-check-2","popsicle","spline","banknote-x","git-pull-request-create-arrow","link-2-off","circle-check","plus","plug","playing-cards","play-off","play","plane-landing","timer-off","arrow-big-right-dash","pin","pill","message-square-diff","backpack","pilcrow-left","pickaxe","piano","circle-alert","mic-signal","arrow-down-right","phone-off","receipt","wifi-zero","phone","flashlight-off","phi","percent","image-off","pentagon","pencil-off","database-arrow-down","pen-off","square-chevron-right","mail-search","heading-2","bone-fracture","pc-case","moon","parasol","paperclip","tally-1","ampersand","ad","shopping-cart","align-vertical-justify-end","panel-top","alarm-smoke","panel-right-open","file-input","clock-8","hand-grab","cloud-cog","blend","hd","radio-tower","list-tree","droplet","panel-left-right-dashed","eye","panel-left-open","panel-left-dashed","banana","gpu","message-square-lock","file-minus-corner","circle-equal","face-slightly-frowning","panel-bottom-close","panel-bottom","panda","text-initial","arrow-up-right","paintbrush-vertical","leafy-green","message-square-dot","file-chart-line","columns-3-cog","package-search","package-plus","minimize-2","package-open","component","cone","package-2","file-image","package","palette","barrel","gallery-thumbnails","orbit","cpu","omega","thumbs-down","merge","hamburger","octagon-pause","hat-glasses","code","octagon-minus","monitor-cog","nut-off","nut","file-video-camera","notepad-text-dashed","kanban","bone","apple","rocking-chair","bot-off","list-collapse","mic","newspaper","circle-arrow-out-up-left","network","cable-car","arrow-down-left","square-activity","navigation","cigarette-off","music-2","message-circle","circle-arrow-out-up-right","car-battery","face-neutral","fold-horizontal","shovel","calendar-1","cloud-moon","square-arrow-out-down-right","move-left","clock-plus","circle-euro","cloud-snow","anvil","arrow-big-up-dash","move-down-right","move-down-left","move-3d","maximize","mouse-pointer","mouse-off","chevrons-down-up","clipboard-plus","circle-x","list-end","lock-keyhole-open","circle-ellipsis","chevrons-right","audio-lines-off","message-square-reply","corner-down-right","cloud-backup","summary","lamp-wall-down","mop","paw-print","ellipsis-vertical","globe-off","square-stop","arrow-up-1-0","align-horizontal-justify-end","scan-heart","align-vertical-distribute-end","heart-crack","airplay","monitor-stop","monitor-speaker","monitor-play","monitor-x","bell-check","database-minus","square-pen","map-pin-plus","monitor-dot","dice-5","octagon","ticket","locate","lock-keyhole","train-front","bookmark","microscope","album","mic-vocal","chart-bar-decreasing","database-plus","calendar-sync","funnel-plus","store","circle-arrow-down","notebook-pen","egg-fried","case-sensitive","message-square-warning","corner-right-up","message-square-text","ruler-dimension-line","user-round-plus","panel-left-close","message-square-heart","pilcrow-right","user-round-minus","message-circle-off","message-circle-heart","mail-plus","message-circle-dashed","message-circle-check","maximize-2","mouse-pointer-2-off","drone","slash","credit-card-x","aperture","arrow-right-left","layout-panel-top","vector-square","circle-gauge","map-pin-x","check","text-search","arrow-down-to-dot","monitor-down","delete","chef-hat","fan","map-pin","file-archive","signal-high","inbox","flip-horizontal-2","bell-off","image-play","align-horizontal-space-between","mail-clock","calendar-check","database-zap","droplets","mail-check","broom","mail-badge","layout-list","file-search","mail","alarm-clock-plus","circle-dollar-sign","usb","house","receipt-pound-sterling","logs","log-in","id-card","mouse","minimize","lock","calculator","galaxy","locate-fixed","book-x","mirror-rectangular","loader-pinwheel","loader-circle","crosshair","headphone-off","asterisk","list-video","octagon-x","languages","lightbulb","alarm-clock-check","guitar","list-music","beer-off","scooter","square-parking-off","notebook-text","arrow-right-to-line","ticket-minus","tally-4","zodiac-taurus","list-checks","door-open","flag-triangle-left","grid-3x3","file","list-check","pocket-knife","book-copy","castle","car-front","clock-alert","reply-all","cloud-moon-rain","clipboard-type","line-style","list-todo","printer-x","calendar-range","list-start","ligature","a-large-small","library-big","leaf","map-plus","layout-grid","layout-freeform","layout-dashboard","database-arrow-up","arrow-right-from-line","flame-kindling","square-power","lasso","bring-to-front","bird","land-plot","bell-plus","lamp-wall-up","lamp-ceiling","lamp","folders","mail-warning","key-square","file-play","kayak","chevrons-left-right","chart-line","file-lock","cast","circle-fading-plus","clock-10","undo-dot","target","list-filter-plus","inspection-panel","drama","info","baseline","martini","contrast","indian-rupee","candy-off","image-plus","book-check","image-minus","book-lock","id-card-lanyard","briefcase-medical","calendars","text-align-start","ice-cream-bowl","hop-off","warehouse","sticky-notes","drafting-compass","save-all","hotel","hospital","highlighter","helicopter","heart-pulse","fishing-rod","book-headphones","credit-card","heart-off","heart-minus","heart","shredder","panel-bottom-open","heading-6","heading-5","credit-card-check","balloon","map-pin-plus-inside","bookmark-x","badge-question-mark","pen","heading-1","candy-cane","haze","hard-hat","gamepad-2","hard-drive-upload","hard-drive-download","external-link","handbag","shield-minus","circle-off","dessert","eclipse","church","hand","cylinder","badge-japanese-yen","hammer","receipt-text","fingerprint-pattern","grid-2x2-check","grid-2x2","globe-x","file-output","disc-album","git-pull-request-draft","arrow-down-0-1","captions","git-pull-request-create","construction","philippine-peso","badge-alert","git-merge-conflict","folder-pen","cross","git-compare","chevron-right","sticky-note-minus","square-arrow-down-left","share-2","git-branch","gift","ghost","gem","gauge","gamepad-directional","chess-pawn","gamepad","briefcase-business","fullscreen","message-circle-reply","folder-up","triangle-right","folder-clock","folder-root","mop-sparkles","type","webhook","compass","align-horizontal-distribute-start","folder-cog","folder-closed","pointer-off","turtle","camera","flask-round","flask-conical-off","git-pull-request","bluetooth-searching","arrow-up-to-line","squircle-dashed","clock-3","badge-percent","face-expressionless","fish","fire-extinguisher","grid-2x2-plus","film","box","file-x-corner","clock-1","file-heart","file-x","space","file-type-corner","file-stack","file-search-corner","corner-up-left","clock-6","zodiac-scorpio","key-round","headphones","tv","file-digit","file-check","rss","file-braces","at-sign","map-pin-check-inside","sticky-note-off","music","handshake","expand","circle-user","copy-plus","euro","equal-approximately","shrink","earth-lock","droplet-off","search-check","clipboard-check","columns-2","dock","disc","align-center-vertical","diff","dices","diamond-minus","cloud-fog","mosque","diameter","map-pin-house","package-check","chevron-first","pencil","currency","list-x","crop","caravan","corner-up-right","corner-right-down","clock-arrow-left","copyright","copyleft","badge-indian-rupee","boxes","redo-dot","container","align-start-horizontal","chart-column-stacked","file-plus","git-pull-request-arrow","computer","decimals-arrow-right","bell-dot","folder-down","coins","club","align-horizontal-space-around","door-closed-locked","cloud-drizzle","diamond","blinds","clock-arrow-right","clock-9","book-search","git-branch-minus","clapperboard","recycle","mountain-snow","luggage","circle-arrow-out-down-left","bot-message-square","phone-outgoing","smartphone-charging","chevrons-down","train-track","chess-bishop","cherry","sticky-note-plus","chart-no-axes-column-increasing","chart-no-axes-column-decreasing","chart-network","chart-no-axes-combined","metronome","case-lower","arrow-down-1-0","credit-card-minus","candy","arrow-left-right","lightbulb-off","panels-top-left","beef-off","locate-off","bug","test-tube","brick-wall","cooking-pot","boom-box","book-up","book-plus","laptop-minimal-check","mail-open","square-function","baggage-claim","variable","arrow-right","archive-restore"},{if getcustomasset and not IS_GETCUSTOMASSET_BROKEN then getcustomasset("Moonlight-icons/1.png") else "rbxassetid://97854828246256",if getcustomasset and not IS_GETCUSTOMASSET_BROKEN then getcustomasset("Moonlight-icons/2.png") else "rbxassetid://96738291359702"},{[48]={{1,{24,24},{150,25}},{1,{24,24},{175,450}},{1,{24,24},{825,250}},{1,{24,24},{925,850}},{1,{24,24},{750,200}},{1,{24,24},{100,700}},{1,{24,24},{425,900}},{2,{24,24},{50,300}},{1,{24,24},{50,350}},{1,{24,24},{175,500}},{1,{24,24},{0,900}},{1,{24,24},{50,400}},{1,{24,24},{650,350}},{1,{24,24},{425,425}},{1,{24,24},{25,100}},{1,{24,24},{750,225}},{1,{24,24},{750,525}},{1,{24,24},{500,750}},{1,{24,24},{300,75}},{1,{24,24},{100,325}},{1,{24,24},{250,600}},{1,{24,24},{925,450}},{1,{24,24},{375,625}},{1,{24,24},{500,50}},{1,{24,24},{775,675}},{1,{24,24},{50,375}},{1,{24,24},{125,825}},{1,{24,24},{825,975}},{1,{24,24},{325,425}},{1,{24,24},{300,200}},{1,{24,24},{800,75}},{1,{24,24},{875,400}},{1,{24,24},{200,925}},{1,{24,24},{550,850}},{1,{24,24},{100,750}},{1,{24,24},{425,825}},{1,{24,24},{75,125}},{1,{24,24},{475,500}},{2,{24,24},{0,25}},{1,{24,24},{325,125}},{2,{24,24},{275,150}},{1,{24,24},{475,250}},{1,{24,24},{225,900}},{1,{24,24},{375,350}},{1,{24,24},{550,375}},{1,{24,24},{425,175}},{1,{24,24},{600,550}},{2,{24,24},{150,175}},{1,{24,24},{925,375}},{1,{24,24},{75,350}},{1,{24,24},{525,125}},{1,{24,24},{100,425}},{1,{24,24},{825,300}},{1,{24,24},{925,325}},{1,{24,24},{450,50}},{1,{24,24},{450,450}},{1,{24,24},{500,150}},{1,{24,24},{650,925}},{1,{24,24},{775,825}},{1,{24,24},{925,825}},{1,{24,24},{550,925}},{2,{24,24},{350,75}},{1,{24,24},{600,400}},{1,{24,24},{975,225}},{1,{24,24},{725,125}},{1,{24,24},{225,100}},{1,{24,24},{25,825}},{1,{24,24},{625,925}},{1,{24,24},{300,925}},{1,{24,24},{900,500}},{1,{24,24},{225,750}},{1,{24,24},{75,200}},{1,{24,24},{975,500}},{2,{24,24},{75,25}},{1,{24,24},{200,350}},{2,{24,24},{400,50}},{1,{24,24},{800,400}},{2,{24,24},{275,100}},{1,{24,24},{775,525}},{2,{24,24},{225,0}},{1,{24,24},{225,150}},{1,{24,24},{200,375}},{1,{24,24},{75,100}},{1,{24,24},{700,125}},{1,{24,24},{675,500}},{1,{24,24},{600,450}},{1,{24,24},{200,700}},{1,{24,24},{500,300}},{1,{24,24},{125,125}},{2,{24,24},{150,225}},{1,{24,24},{725,450}},{1,{24,24},{550,300}},{1,{24,24},{275,700}},{1,{24,24},{875,100}},{1,{24,24},{300,900}},{1,{24,24},{0,725}},{1,{24,24},{650,625}},{1,{24,24},{650,125}},{1,{24,24},{225,125}},{1,{24,24},{275,450}},{2,{24,24},{250,75}},{1,{24,24},{25,250}},{1,{24,24},{75,400}},{1,{24,24},{550,600}},{1,{24,24},{900,350}},{1,{24,24},{450,150}},{1,{24,24},{825,175}},{1,{24,24},{100,675}},{2,{24,24},{175,50}},{1,{24,24},{650,325}},{1,{24,24},{350,325}},{1,{24,24},{300,325}},{1,{24,24},{75,325}},{1,{24,24},{950,375}},{1,{24,24},{725,700}},{1,{24,24},{175,25}},{1,{24,24},{575,900}},{1,{24,24},{625,75}},{1,{24,24},{350,900}},{1,{24,24},{25,525}},{1,{24,24},{100,500}},{1,{24,24},{200,200}},{1,{24,24},{800,800}},{1,{24,24},{900,775}},{1,{24,24},{650,150}},{1,{24,24},{600,325}},{1,{24,24},{125,975}},{1,{24,24},{200,800}},{1,{24,24},{875,975}},{1,{24,24},{650,25}},{1,{24,24},{225,875}},{1,{24,24},{400,150}},{1,{24,24},{425,525}},{1,{24,24},{50,175}},{2,{24,24},{75,50}},{1,{24,24},{575,725}},{1,{24,24},{775,0}},{1,{24,24},{25,925}},{2,{24,24},{150,75}},{1,{24,24},{475,300}},{1,{24,24},{50,975}},{1,{24,24},{850,0}},{2,{24,24},{75,250}},{1,{24,24},{650,700}},{1,{24,24},{825,375}},{1,{24,24},{125,0}},{1,{24,24},{75,500}},{1,{24,24},{750,450}},{1,{24,24},{400,425}},{2,{24,24},{325,50}},{1,{24,24},{800,925}},{1,{24,24},{500,125}},{1,{24,24},{975,325}},{2,{24,24},{25,125}},{1,{24,24},{425,150}},{1,{24,24},{175,375}},{1,{24,24},{950,0}},{1,{24,24},{325,375}},{1,{24,24},{800,275}},{1,{24,24},{50,425}},{1,{24,24},{300,375}},{1,{24,24},{625,700}},{1,{24,24},{0,350}},{1,{24,24},{100,250}},{1,{24,24},{750,125}},{1,{24,24},{50,450}},{1,{24,24},{425,275}},{2,{24,24},{300,25}},{1,{24,24},{475,450}},{2,{24,24},{325,25}},{1,{24,24},{250,75}},{1,{24,24},{100,200}},{1,{24,24},{25,150}},{1,{24,24},{950,100}},{1,{24,24},{850,400}},{1,{24,24},{725,750}},{1,{24,24},{500,400}},{1,{24,24},{0,425}},{1,{24,24},{0,125}},{1,{24,24},{825,0}},{1,{24,24},{0,550}},{1,{24,24},{325,850}},{1,{24,24},{500,375}},{1,{24,24},{325,50}},{1,{24,24},{325,975}},{1,{24,24},{775,500}},{1,{24,24},{625,150}},{1,{24,24},{700,250}},{1,{24,24},{425,125}},{1,{24,24},{400,100}},{1,{24,24},{975,575}},{1,{24,24},{250,425}},{2,{24,24},{300,75}},{1,{24,24},{400,200}},{1,{24,24},{350,300}},{1,{24,24},{750,850}},{1,{24,24},{575,625}},{1,{24,24},{750,475}},{1,{24,24},{450,25}},{1,{24,24},{50,75}},{2,{24,24},{25,50}},{1,{24,24},{50,900}},{1,{24,24},{525,775}},{1,{24,24},{925,125}},{1,{24,24},{75,300}},{1,{24,24},{425,700}},{1,{24,24},{350,450}},{1,{24,24},{675,450}},{1,{24,24},{350,575}},{1,{24,24},{700,425}},{1,{24,24},{375,725}},{1,{24,24},{300,875}},{1,{24,24},{50,250}},{1,{24,24},{0,325}},{1,{24,24},{150,125}},{2,{24,24},{125,150}},{1,{24,24},{625,425}},{1,{24,24},{925,250}},{1,{24,24},{225,950}},{1,{24,24},{550,900}},{1,{24,24},{900,0}},{1,{24,24},{200,600}},{1,{24,24},{275,600}},{1,{24,24},{475,275}},{1,{24,24},{100,125}},{1,{24,24},{750,825}},{1,{24,24},{775,400}},{1,{24,24},{625,100}},{1,{24,24},{575,150}},{1,{24,24},{600,650}},{2,{24,24},{125,225}},{1,{24,24},{800,875}},{1,{24,24},{775,350}},{1,{24,24},{400,375}},{1,{24,24},{450,400}},{2,{24,24},{75,225}},{1,{24,24},{275,350}},{2,{24,24},{250,175}},{1,{24,24},{800,100}},{1,{24,24},{775,650}},{1,{24,24},{50,50}},{1,{24,24},{900,575}},{1,{24,24},{750,675}},{1,{24,24},{125,400}},{1,{24,24},{925,575}},{1,{24,24},{400,75}},{1,{24,24},{350,525}},{1,{24,24},{800,350}},{1,{24,24},{575,550}},{1,{24,24},{600,50}},{2,{24,24},{250,25}},{1,{24,24},{900,600}},{1,{24,24},{525,175}},{1,{24,24},{625,475}},{1,{24,24},{75,225}},{1,{24,24},{50,600}},{1,{24,24},{100,575}},{1,{24,24},{200,0}},{1,{24,24},{450,575}},{1,{24,24},{200,450}},{2,{24,24},{350,100}},{1,{24,24},{100,300}},{1,{24,24},{850,375}},{1,{24,24},{200,325}},{1,{24,24},{50,575}},{1,{24,24},{725,525}},{1,{24,24},{0,775}},{1,{24,24},{225,700}},{1,{24,24},{625,625}},{1,{24,24},{75,725}},{1,{24,24},{25,200}},{1,{24,24},{375,225}},{1,{24,24},{50,475}},{1,{24,24},{25,550}},{1,{24,24},{525,575}},{1,{24,24},{750,100}},{1,{24,24},{200,625}},{1,{24,24},{825,700}},{1,{24,24},{900,400}},{1,{24,24},{200,250}},{1,{24,24},{100,925}},{1,{24,24},{875,275}},{1,{24,24},{50,300}},{1,{24,24},{75,650}},{1,{24,24},{675,25}},{1,{24,24},{900,550}},{1,{24,24},{775,325}},{1,{24,24},{700,725}},{1,{24,24},{675,725}},{1,{24,24},{125,75}},{2,{24,24},{125,200}},{1,{24,24},{400,450}},{1,{24,24},{875,775}},{1,{24,24},{975,775}},{1,{24,24},{925,800}},{1,{24,24},{150,400}},{1,{24,24},{100,800}},{1,{24,24},{50,325}},{2,{24,24},{475,0}},{1,{24,24},{0,800}},{1,{24,24},{375,750}},{2,{24,24},{0,450}},{2,{24,24},{25,425}},{1,{24,24},{225,825}},{1,{24,24},{925,150}},{1,{24,24},{300,425}},{1,{24,24},{225,525}},{1,{24,24},{775,75}},{1,{24,24},{200,25}},{1,{24,24},{700,225}},{1,{24,24},{150,675}},{1,{24,24},{100,650}},{2,{24,24},{125,325}},{1,{24,24},{550,825}},{1,{24,24},{250,250}},{1,{24,24},{950,950}},{1,{24,24},{725,200}},{1,{24,24},{625,125}},{1,{24,24},{200,475}},{2,{24,24},{175,275}},{1,{24,24},{450,550}},{2,{24,24},{100,25}},{1,{24,24},{825,100}},{2,{24,24},{200,250}},{1,{24,24},{25,425}},{1,{24,24},{75,950}},{1,{24,24},{250,150}},{2,{24,24},{225,225}},{2,{24,24},{100,200}},{1,{24,24},{75,525}},{1,{24,24},{400,525}},{1,{24,24},{425,325}},{1,{24,24},{175,175}},{1,{24,24},{175,0}},{1,{24,24},{300,225}},{1,{24,24},{750,375}},{1,{24,24},{850,700}},{1,{24,24},{150,300}},{1,{24,24},{975,425}},{1,{24,24},{675,950}},{1,{24,24},{225,350}},{2,{24,24},{300,150}},{1,{24,24},{350,150}},{1,{24,24},{775,200}},{1,{24,24},{450,225}},{1,{24,24},{25,300}},{1,{24,24},{225,925}},{1,{24,24},{275,0}},{2,{24,24},{325,125}},{1,{24,24},{25,750}},{2,{24,24},{375,25}},{1,{24,24},{700,625}},{1,{24,24},{625,725}},{1,{24,24},{75,475}},{1,{24,24},{75,675}},{2,{24,24},{425,25}},{1,{24,24},{775,150}},{1,{24,24},{225,250}},{1,{24,24},{925,750}},{1,{24,24},{850,325}},{1,{24,24},{900,900}},{1,{24,24},{950,525}},{1,{24,24},{875,150}},{1,{24,24},{625,800}},{1,{24,24},{350,825}},{2,{24,24},{25,400}},{2,{24,24},{50,375}},{1,{24,24},{400,875}},{2,{24,24},{100,325}},{1,{24,24},{200,425}},{1,{24,24},{500,25}},{1,{24,24},{100,450}},{1,{24,24},{875,200}},{2,{24,24},{75,350}},{1,{24,24},{775,900}},{1,{24,24},{975,175}},{2,{24,24},{150,275}},{1,{24,24},{225,25}},{1,{24,24},{725,900}},{1,{24,24},{700,325}},{1,{24,24},{400,850}},{1,{24,24},{725,25}},{1,{24,24},{775,950}},{1,{24,24},{600,900}},{2,{24,24},{225,200}},{1,{24,24},{875,675}},{1,{24,24},{75,850}},{2,{24,24},{325,100}},{1,{24,24},{175,525}},{1,{24,24},{125,425}},{1,{24,24},{700,200}},{1,{24,24},{300,50}},{1,{24,24},{725,75}},{1,{24,24},{150,750}},{2,{24,24},{175,250}},{1,{24,24},{525,475}},{1,{24,24},{675,175}},{2,{24,24},{250,100}},{1,{24,24},{425,225}},{1,{24,24},{650,500}},{2,{24,24},{425,0}},{2,{24,24},{400,25}},{1,{24,24},{475,325}},{2,{24,24},{25,375}},{1,{24,24},{175,675}},{2,{24,24},{50,175}},{1,{24,24},{325,625}},{1,{24,24},{200,150}},{2,{24,24},{0,400}},{1,{24,24},{775,700}},{1,{24,24},{975,75}},{1,{24,24},{375,900}},{1,{24,24},{25,950}},{1,{24,24},{225,400}},{1,{24,24},{975,0}},{1,{24,24},{825,150}},{2,{24,24},{100,350}},{2,{24,24},{125,275}},{1,{24,24},{800,775}},{1,{24,24},{50,650}},{1,{24,24},{25,800}},{1,{24,24},{650,750}},{2,{24,24},{100,300}},{1,{24,24},{825,650}},{1,{24,24},{100,725}},{2,{24,24},{150,250}},{1,{24,24},{500,675}},{1,{24,24},{700,25}},{2,{24,24},{25,75}},{1,{24,24},{700,675}},{2,{24,24},{175,225}},{2,{24,24},{200,200}},{1,{24,24},{25,650}},{2,{24,24},{225,175}},{1,{24,24},{550,875}},{1,{24,24},{75,975}},{1,{24,24},{725,375}},{1,{24,24},{275,550}},{2,{24,24},{275,125}},{1,{24,24},{600,150}},{1,{24,24},{25,775}},{2,{24,24},{300,100}},{1,{24,24},{800,950}},{1,{24,24},{675,850}},{1,{24,24},{525,700}},{2,{24,24},{325,75}},{1,{24,24},{250,975}},{2,{24,24},{225,25}},{1,{24,24},{350,650}},{1,{24,24},{425,200}},{2,{24,24},{400,0}},{1,{24,24},{75,450}},{1,{24,24},{100,400}},{1,{24,24},{300,300}},{2,{24,24},{0,375}},{1,{24,24},{475,800}},{1,{24,24},{75,0}},{2,{24,24},{50,325}},{1,{24,24},{725,100}},{2,{24,24},{75,300}},{2,{24,24},{25,350}},{1,{24,24},{175,700}},{1,{24,24},{450,250}},{1,{24,24},{125,500}},{1,{24,24},{250,225}},{2,{24,24},{100,275}},{1,{24,24},{375,300}},{1,{24,24},{150,800}},{1,{24,24},{425,300}},{1,{24,24},{575,650}},{1,{24,24},{75,575}},{2,{24,24},{175,200}},{1,{24,24},{975,450}},{1,{24,24},{700,950}},{1,{24,24},{175,100}},{1,{24,24},{450,500}},{1,{24,24},{200,725}},{1,{24,24},{475,50}},{1,{24,24},{25,400}},{1,{24,24},{675,125}},{1,{24,24},{475,750}},{2,{24,24},{225,150}},{2,{24,24},{125,250}},{2,{24,24},{250,125}},{1,{24,24},{325,750}},{1,{24,24},{600,350}},{1,{24,24},{475,225}},{1,{24,24},{125,750}},{2,{24,24},{125,50}},{2,{24,24},{350,25}},{1,{24,24},{475,975}},{1,{24,24},{825,950}},{1,{24,24},{750,400}},{2,{24,24},{75,175}},{1,{24,24},{25,700}},{1,{24,24},{400,0}},{2,{24,24},{0,350}},{1,{24,24},{900,225}},{1,{24,24},{475,350}},{2,{24,24},{75,275}},{1,{24,24},{525,50}},{1,{24,24},{850,450}},{1,{24,24},{500,600}},{1,{24,24},{150,275}},{1,{24,24},{100,550}},{2,{24,24},{175,175}},{1,{24,24},{100,175}},{1,{24,24},{125,175}},{1,{24,24},{900,25}},{2,{24,24},{200,150}},{1,{24,24},{250,125}},{2,{24,24},{375,50}},{1,{24,24},{250,900}},{1,{24,24},{225,575}},{2,{24,24},{125,100}},{2,{24,24},{275,75}},{2,{24,24},{100,225}},{2,{24,24},{300,50}},{2,{24,24},{100,150}},{1,{24,24},{50,625}},{1,{24,24},{0,175}},{2,{24,24},{0,325}},{2,{24,24},{350,0}},{2,{24,24},{50,275}},{1,{24,24},{0,225}},{1,{24,24},{400,275}},{1,{24,24},{475,100}},{2,{24,24},{50,250}},{1,{24,24},{600,575}},{1,{24,24},{100,275}},{1,{24,24},{0,925}},{1,{24,24},{400,825}},{2,{24,24},{175,150}},{2,{24,24},{200,125}},{2,{24,24},{100,100}},{1,{24,24},{400,725}},{1,{24,24},{150,775}},{2,{24,24},{325,0}},{1,{24,24},{50,275}},{2,{24,24},{0,300}},{2,{24,24},{25,275}},{2,{24,24},{125,175}},{1,{24,24},{275,625}},{1,{24,24},{575,775}},{2,{24,24},{150,150}},{1,{24,24},{425,400}},{1,{24,24},{575,975}},{1,{24,24},{475,900}},{1,{24,24},{700,775}},{2,{24,24},{25,300}},{1,{24,24},{700,600}},{1,{24,24},{200,900}},{2,{24,24},{250,50}},{1,{24,24},{175,75}},{1,{24,24},{825,600}},{1,{24,24},{50,800}},{1,{24,24},{225,850}},{2,{24,24},{50,125}},{1,{24,24},{925,650}},{1,{24,24},{425,375}},{1,{24,24},{625,200}},{1,{24,24},{175,50}},{1,{24,24},{600,750}},{1,{24,24},{450,525}},{2,{24,24},{275,25}},{1,{24,24},{850,675}},{2,{24,24},{300,0}},{1,{24,24},{800,850}},{1,{24,24},{850,225}},{2,{24,24},{0,275}},{1,{24,24},{425,925}},{2,{24,24},{50,225}},{1,{24,24},{525,100}},{2,{24,24},{75,200}},{2,{24,24},{100,175}},{1,{24,24},{25,725}},{2,{24,24},{125,300}},{2,{24,24},{200,75}},{1,{24,24},{775,275}},{2,{24,24},{150,125}},{1,{24,24},{325,350}},{2,{24,24},{225,50}},{1,{24,24},{300,350}},{1,{24,24},{825,825}},{1,{24,24},{800,225}},{1,{24,24},{150,450}},{2,{24,24},{275,0}},{1,{24,24},{700,975}},{2,{24,24},{25,225}},{1,{24,24},{0,0}},{1,{24,24},{175,350}},{1,{24,24},{950,750}},{1,{24,24},{675,250}},{1,{24,24},{575,300}},{1,{24,24},{225,675}},{2,{24,24},{150,100}},{2,{24,24},{175,75}},{2,{24,24},{200,50}},{1,{24,24},{950,75}},{1,{24,24},{275,100}},{1,{24,24},{925,725}},{1,{24,24},{550,325}},{2,{24,24},{250,0}},{1,{24,24},{375,50}},{1,{24,24},{900,475}},{1,{24,24},{25,850}},{1,{24,24},{500,425}},{1,{24,24},{850,775}},{2,{24,24},{75,150}},{1,{24,24},{50,950}},{1,{24,24},{475,25}},{2,{24,24},{0,225}},{1,{24,24},{500,975}},{2,{24,24},{100,125}},{1,{24,24},{750,0}},{2,{24,24},{25,25}},{1,{24,24},{625,975}},{2,{24,24},{0,200}},{1,{24,24},{925,275}},{1,{24,24},{0,275}},{1,{24,24},{100,475}},{2,{24,24},{50,150}},{1,{24,24},{325,800}},{1,{24,24},{575,75}},{2,{24,24},{75,125}},{1,{24,24},{100,525}},{2,{24,24},{175,25}},{1,{24,24},{775,375}},{1,{24,24},{200,650}},{2,{24,24},{0,175}},{1,{24,24},{625,950}},{1,{24,24},{525,325}},{1,{24,24},{75,50}},{1,{24,24},{125,900}},{1,{24,24},{75,750}},{1,{24,24},{175,925}},{1,{24,24},{450,125}},{2,{24,24},{25,150}},{2,{24,24},{75,100}},{1,{24,24},{250,575}},{1,{24,24},{750,575}},{2,{24,24},{150,25}},{1,{24,24},{500,950}},{1,{24,24},{225,450}},{2,{24,24},{375,0}},{1,{24,24},{725,300}},{2,{24,24},{175,0}},{2,{24,24},{0,150}},{2,{24,24},{50,100}},{1,{24,24},{550,500}},{1,{24,24},{150,725}},{1,{24,24},{125,525}},{1,{24,24},{50,0}},{2,{24,24},{75,75}},{1,{24,24},{875,725}},{1,{24,24},{100,100}},{1,{24,24},{625,750}},{1,{24,24},{950,875}},{2,{24,24},{125,25}},{2,{24,24},{0,125}},{1,{24,24},{700,575}},{2,{24,24},{150,0}},{1,{24,24},{975,475}},{1,{24,24},{175,475}},{2,{24,24},{50,75}},{2,{24,24},{0,100}},{1,{24,24},{425,675}},{1,{24,24},{700,75}},{1,{24,24},{650,50}},{1,{24,24},{975,625}},{1,{24,24},{175,875}},{1,{24,24},{400,975}},{1,{24,24},{575,575}},{1,{24,24},{650,275}},{1,{24,24},{325,150}},{1,{24,24},{400,650}},{2,{24,24},{0,50}},{1,{24,24},{100,350}},{2,{24,24},{200,25}},{1,{24,24},{850,475}},{2,{24,24},{75,0}},{2,{24,24},{50,0}},{1,{24,24},{50,925}},{2,{24,24},{0,0}},{1,{24,24},{375,825}},{1,{24,24},{975,950}},{1,{24,24},{350,550}},{1,{24,24},{950,975}},{1,{24,24},{50,875}},{1,{24,24},{975,675}},{1,{24,24},{425,500}},{1,{24,24},{275,725}},{2,{24,24},{150,300}},{1,{24,24},{975,925}},{1,{24,24},{900,975}},{1,{24,24},{25,275}},{1,{24,24},{625,275}},{1,{24,24},{925,950}},{1,{24,24},{975,900}},{1,{24,24},{400,125}},{1,{24,24},{175,750}},{1,{24,24},{300,250}},{1,{24,24},{200,500}},{1,{24,24},{850,825}},{1,{24,24},{850,900}},{1,{24,24},{900,950}},{1,{24,24},{975,50}},{1,{24,24},{275,800}},{1,{24,24},{500,0}},{1,{24,24},{950,900}},{1,{24,24},{425,600}},{1,{24,24},{425,450}},{1,{24,24},{25,975}},{1,{24,24},{750,275}},{1,{24,24},{150,200}},{1,{24,24},{450,0}},{1,{24,24},{50,150}},{1,{24,24},{850,975}},{1,{24,24},{525,900}},{1,{24,24},{200,850}},{1,{24,24},{925,900}},{1,{24,24},{50,500}},{1,{24,24},{850,550}},{1,{24,24},{425,775}},{1,{24,24},{25,350}},{1,{24,24},{450,950}},{1,{24,24},{600,825}},{1,{24,24},{850,950}},{1,{24,24},{925,875}},{1,{24,24},{975,825}},{2,{24,24},{100,50}},{1,{24,24},{850,925}},{1,{24,24},{375,475}},{1,{24,24},{375,200}},{1,{24,24},{875,900}},{1,{24,24},{900,875}},{1,{24,24},{950,825}},{1,{24,24},{975,800}},{1,{24,24},{800,975}},{1,{24,24},{700,275}},{1,{24,24},{775,975}},{1,{24,24},{125,275}},{1,{24,24},{150,600}},{1,{24,24},{925,925}},{1,{24,24},{875,875}},{1,{24,24},{575,750}},{1,{24,24},{675,825}},{1,{24,24},{950,800}},{1,{24,24},{825,900}},{1,{24,24},{300,150}},{1,{24,24},{850,875}},{1,{24,24},{175,225}},{1,{24,24},{750,50}},{1,{24,24},{600,800}},{1,{24,24},{850,25}},{1,{24,24},{625,300}},{1,{24,24},{900,825}},{1,{24,24},{950,775}},{1,{24,24},{800,725}},{1,{24,24},{975,750}},{1,{24,24},{325,25}},{1,{24,24},{150,975}},{1,{24,24},{750,950}},{1,{24,24},{400,50}},{1,{24,24},{400,600}},{1,{24,24},{825,875}},{1,{24,24},{275,325}},{1,{24,24},{500,850}},{1,{24,24},{500,350}},{1,{24,24},{125,950}},{1,{24,24},{525,425}},{1,{24,24},{925,775}},{1,{24,24},{800,900}},{1,{24,24},{975,725}},{1,{24,24},{400,300}},{1,{24,24},{75,425}},{1,{24,24},{100,0}},{1,{24,24},{725,950}},{1,{24,24},{625,450}},{1,{24,24},{825,850}},{1,{24,24},{775,775}},{1,{24,24},{600,775}},{1,{24,24},{375,0}},{1,{24,24},{325,175}},{1,{24,24},{750,925}},{2,{24,24},{0,425}},{1,{24,24},{950,725}},{1,{24,24},{25,0}},{1,{24,24},{600,125}},{1,{24,24},{575,325}},{1,{24,24},{975,700}},{2,{24,24},{25,325}},{1,{24,24},{625,225}},{2,{24,24},{275,175}},{1,{24,24},{775,875}},{1,{24,24},{0,850}},{1,{24,24},{850,800}},{1,{24,24},{200,400}},{1,{24,24},{900,750}},{1,{24,24},{425,725}},{1,{24,24},{525,75}},{1,{24,24},{225,175}},{1,{24,24},{650,975}},{1,{24,24},{700,925}},{1,{24,24},{975,525}},{1,{24,24},{750,875}},{1,{24,24},{275,275}},{1,{24,24},{300,725}},{1,{24,24},{675,225}},{1,{24,24},{775,850}},{1,{24,24},{550,525}},{1,{24,24},{75,375}},{1,{24,24},{400,400}},{1,{24,24},{75,800}},{1,{24,24},{550,150}},{1,{24,24},{325,100}},{1,{24,24},{650,400}},{1,{24,24},{800,825}},{1,{24,24},{825,800}},{1,{24,24},{900,150}},{1,{24,24},{425,25}},{1,{24,24},{575,600}},{1,{24,24},{900,725}},{1,{24,24},{775,50}},{1,{24,24},{925,700}},{1,{24,24},{725,325}},{1,{24,24},{950,675}},{1,{24,24},{975,650}},{1,{24,24},{450,700}},{1,{24,24},{275,225}},{1,{24,24},{500,475}},{1,{24,24},{675,925}},{1,{24,24},{725,675}},{1,{24,24},{625,500}},{1,{24,24},{775,250}},{1,{24,24},{700,900}},{1,{24,24},{500,800}},{1,{24,24},{425,100}},{1,{24,24},{850,750}},{1,{24,24},{900,700}},{1,{24,24},{0,400}},{1,{24,24},{575,450}},{1,{24,24},{225,475}},{1,{24,24},{950,650}},{2,{24,24},{50,50}},{1,{24,24},{200,100}},{1,{24,24},{250,175}},{1,{24,24},{600,975}},{1,{24,24},{950,50}},{1,{24,24},{100,375}},{1,{24,24},{425,800}},{1,{24,24},{175,850}},{1,{24,24},{550,950}},{1,{24,24},{875,650}},{1,{24,24},{625,675}},{1,{24,24},{775,800}},{1,{24,24},{475,75}},{1,{24,24},{825,750}},{1,{24,24},{75,250}},{1,{24,24},{550,75}},{1,{24,24},{225,650}},{1,{24,24},{850,725}},{1,{24,24},{500,200}},{1,{24,24},{775,475}},{1,{24,24},{250,500}},{1,{24,24},{900,675}},{1,{24,24},{525,500}},{1,{24,24},{700,650}},{1,{24,24},{300,550}},{1,{24,24},{150,250}},{1,{24,24},{950,150}},{1,{24,24},{25,225}},{1,{24,24},{250,275}},{1,{24,24},{375,75}},{1,{24,24},{650,675}},{1,{24,24},{525,0}},{1,{24,24},{950,450}},{1,{24,24},{450,775}},{1,{24,24},{875,225}},{1,{24,24},{725,850}},{2,{24,24},{175,125}},{1,{24,24},{400,675}},{1,{24,24},{600,950}},{1,{24,24},{625,650}},{1,{24,24},{975,100}},{1,{24,24},{300,25}},{1,{24,24},{650,900}},{1,{24,24},{100,600}},{1,{24,24},{675,875}},{1,{24,24},{375,975}},{1,{24,24},{125,25}},{1,{24,24},{725,825}},{1,{24,24},{25,175}},{1,{24,24},{150,950}},{1,{24,24},{825,575}},{1,{24,24},{850,575}},{1,{24,24},{950,625}},{1,{24,24},{750,250}},{1,{24,24},{800,750}},{1,{24,24},{675,425}},{1,{24,24},{375,575}},{1,{24,24},{900,50}},{1,{24,24},{825,725}},{1,{24,24},{575,400}},{2,{24,24},{250,200}},{2,{24,24},{300,125}},{1,{24,24},{425,750}},{1,{24,24},{525,200}},{1,{24,24},{475,400}},{1,{24,24},{500,450}},{1,{24,24},{100,625}},{1,{24,24},{75,75}},{1,{24,24},{925,625}},{1,{24,24},{875,125}},{1,{24,24},{550,975}},{1,{24,24},{575,0}},{1,{24,24},{550,400}},{1,{24,24},{125,150}},{1,{24,24},{300,100}},{1,{24,24},{950,250}},{2,{24,24},{25,250}},{1,{24,24},{625,900}},{1,{24,24},{650,875}},{1,{24,24},{75,825}},{1,{24,24},{700,825}},{1,{24,24},{200,275}},{1,{24,24},{675,675}},{1,{24,24},{825,325}},{1,{24,24},{725,775}},{1,{24,24},{875,75}},{1,{24,24},{625,825}},{1,{24,24},{325,600}},{1,{24,24},{700,875}},{1,{24,24},{600,500}},{1,{24,24},{400,775}},{1,{24,24},{900,625}},{1,{24,24},{800,125}},{1,{24,24},{925,600}},{1,{24,24},{950,575}},{1,{24,24},{975,550}},{1,{24,24},{150,150}},{1,{24,24},{50,825}},{1,{24,24},{675,900}},{1,{24,24},{575,925}},{1,{24,24},{625,875}},{1,{24,24},{650,850}},{1,{24,24},{900,850}},{1,{24,24},{900,425}},{1,{24,24},{725,800}},{1,{24,24},{125,775}},{1,{24,24},{450,475}},{1,{24,24},{500,250}},{1,{24,24},{150,225}},{1,{24,24},{250,875}},{1,{24,24},{900,325}},{1,{24,24},{650,0}},{1,{24,24},{75,150}},{1,{24,24},{700,800}},{1,{24,24},{775,725}},{1,{24,24},{550,0}},{1,{24,24},{150,525}},{1,{24,24},{800,700}},{1,{24,24},{375,175}},{1,{24,24},{150,575}},{1,{24,24},{250,350}},{1,{24,24},{275,400}},{2,{24,24},{450,0}},{1,{24,24},{875,625}},{1,{24,24},{950,550}},{1,{24,24},{525,950}},{1,{24,24},{525,375}},{1,{24,24},{600,875}},{1,{24,24},{625,850}},{1,{24,24},{125,300}},{1,{24,24},{500,525}},{1,{24,24},{675,800}},{1,{24,24},{250,925}},{1,{24,24},{350,250}},{2,{24,24},{200,100}},{1,{24,24},{650,650}},{1,{24,24},{225,600}},{1,{24,24},{550,725}},{2,{24,24},{75,325}},{1,{24,24},{0,575}},{1,{24,24},{950,600}},{1,{24,24},{875,0}},{1,{24,24},{25,625}},{1,{24,24},{375,800}},{1,{24,24},{325,900}},{1,{24,24},{925,550}},{1,{24,24},{825,275}},{1,{24,24},{725,925}},{1,{24,24},{575,875}},{1,{24,24},{600,850}},{1,{24,24},{750,775}},{1,{24,24},{775,300}},{1,{24,24},{650,800}},{1,{24,24},{250,675}},{1,{24,24},{425,550}},{1,{24,24},{0,75}},{1,{24,24},{700,300}},{1,{24,24},{50,775}},{1,{24,24},{150,325}},{1,{24,24},{700,750}},{1,{24,24},{175,275}},{1,{24,24},{400,950}},{1,{24,24},{600,25}},{1,{24,24},{250,325}},{1,{24,24},{750,175}},{1,{24,24},{725,725}},{1,{24,24},{350,750}},{1,{24,24},{750,700}},{1,{24,24},{825,625}},{1,{24,24},{800,650}},{1,{24,24},{275,575}},{1,{24,24},{850,600}},{1,{24,24},{925,300}},{1,{24,24},{200,750}},{1,{24,24},{875,575}},{1,{24,24},{175,775}},{1,{24,24},{850,425}},{1,{24,24},{525,925}},{1,{24,24},{200,575}},{1,{24,24},{200,525}},{1,{24,24},{450,175}},{1,{24,24},{25,25}},{1,{24,24},{350,0}},{1,{24,24},{575,700}},{1,{24,24},{925,525}},{1,{24,24},{175,550}},{1,{24,24},{950,500}},{1,{24,24},{300,400}},{1,{24,24},{0,750}},{1,{24,24},{325,525}},{1,{24,24},{450,850}},{1,{24,24},{175,425}},{1,{24,24},{450,975}},{1,{24,24},{25,500}},{1,{24,24},{100,75}},{1,{24,24},{500,925}},{2,{24,24},{250,150}},{1,{24,24},{875,950}},{1,{24,24},{650,775}},{1,{24,24},{675,750}},{1,{24,24},{575,850}},{1,{24,24},{0,650}},{1,{24,24},{800,625}},{1,{24,24},{875,550}},{1,{24,24},{900,525}},{1,{24,24},{525,525}},{1,{24,24},{925,500}},{1,{24,24},{50,675}},{2,{24,24},{200,175}},{1,{24,24},{275,125}},{1,{24,24},{675,700}},{1,{24,24},{750,800}},{1,{24,24},{375,150}},{1,{24,24},{275,650}},{1,{24,24},{425,975}},{1,{24,24},{525,25}},{1,{24,24},{500,900}},{1,{24,24},{475,925}},{1,{24,24},{950,125}},{1,{24,24},{875,925}},{1,{24,24},{425,50}},{1,{24,24},{325,725}},{1,{24,24},{175,150}},{1,{24,24},{225,200}},{1,{24,24},{75,925}},{1,{24,24},{500,225}},{1,{24,24},{500,325}},{1,{24,24},{275,50}},{1,{24,24},{750,975}},{1,{24,24},{700,700}},{1,{24,24},{600,700}},{1,{24,24},{650,225}},{1,{24,24},{300,850}},{1,{24,24},{800,600}},{1,{24,24},{575,825}},{1,{24,24},{875,525}},{1,{24,24},{625,775}},{1,{24,24},{925,400}},{2,{24,24},{0,75}},{1,{24,24},{450,300}},{1,{24,24},{750,550}},{1,{24,24},{450,925}},{1,{24,24},{875,300}},{1,{24,24},{325,775}},{1,{24,24},{900,375}},{1,{24,24},{425,875}},{1,{24,24},{250,650}},{1,{24,24},{425,575}},{1,{24,24},{750,900}},{1,{24,24},{525,850}},{1,{24,24},{575,800}},{1,{24,24},{550,475}},{1,{24,24},{875,800}},{1,{24,24},{450,825}},{1,{24,24},{675,75}},{1,{24,24},{675,575}},{1,{24,24},{800,300}},{1,{24,24},{450,75}},{1,{24,24},{950,850}},{1,{24,24},{650,725}},{1,{24,24},{975,300}},{2,{24,24},{25,175}},{1,{24,24},{300,175}},{1,{24,24},{125,850}},{2,{24,24},{200,0}},{1,{24,24},{550,50}},{1,{24,24},{525,150}},{1,{24,24},{775,600}},{1,{24,24},{325,450}},{1,{24,24},{800,575}},{1,{24,24},{825,550}},{1,{24,24},{375,25}},{1,{24,24},{850,525}},{1,{24,24},{875,500}},{1,{24,24},{425,0}},{1,{24,24},{550,775}},{1,{24,24},{125,675}},{1,{24,24},{950,25}},{1,{24,24},{975,400}},{1,{24,24},{875,375}},{1,{24,24},{125,725}},{1,{24,24},{450,900}},{1,{24,24},{475,875}},{1,{24,24},{300,500}},{1,{24,24},{525,825}},{1,{24,24},{250,200}},{1,{24,24},{650,550}},{2,{24,24},{375,75}},{1,{24,24},{975,600}},{1,{24,24},{300,750}},{1,{24,24},{725,625}},{1,{24,24},{800,550}},{1,{24,24},{225,800}},{1,{24,24},{775,575}},{1,{24,24},{850,500}},{1,{24,24},{650,450}},{1,{24,24},{875,475}},{1,{24,24},{475,150}},{1,{24,24},{450,675}},{1,{24,24},{900,450}},{1,{24,24},{225,375}},{1,{24,24},{825,525}},{1,{24,24},{50,200}},{1,{24,24},{925,425}},{1,{24,24},{950,400}},{1,{24,24},{475,700}},{1,{24,24},{250,625}},{1,{24,24},{975,375}},{1,{24,24},{375,950}},{1,{24,24},{175,600}},{1,{24,24},{350,975}},{1,{24,24},{800,500}},{1,{24,24},{825,925}},{1,{24,24},{350,950}},{1,{24,24},{450,875}},{1,{24,24},{350,475}},{1,{24,24},{825,675}},{1,{24,24},{375,425}},{1,{24,24},{725,425}},{1,{24,24},{750,425}},{1,{24,24},{225,550}},{1,{24,24},{125,550}},{1,{24,24},{75,600}},{1,{24,24},{950,425}},{1,{24,24},{125,200}},{1,{24,24},{975,250}},{1,{24,24},{25,375}},{1,{24,24},{600,725}},{1,{24,24},{625,50}},{1,{24,24},{775,100}},{1,{24,24},{550,425}},{1,{24,24},{925,200}},{1,{24,24},{850,75}},{1,{24,24},{600,525}},{1,{24,24},{725,250}},{2,{24,24},{100,75}},{1,{24,24},{775,550}},{1,{24,24},{250,0}},{1,{24,24},{225,425}},{1,{24,24},{450,375}},{1,{24,24},{825,500}},{1,{24,24},{875,450}},{1,{24,24},{375,875}},{1,{24,24},{925,475}},{1,{24,24},{975,350}},{1,{24,24},{400,500}},{1,{24,24},{375,850}},{1,{24,24},{550,675}},{1,{24,24},{400,900}},{1,{24,24},{700,500}},{1,{24,24},{500,825}},{1,{24,24},{475,825}},{1,{24,24},{825,775}},{1,{24,24},{550,750}},{1,{24,24},{375,775}},{1,{24,24},{200,825}},{1,{24,24},{750,650}},{1,{24,24},{125,575}},{1,{24,24},{700,850}},{1,{24,24},{125,350}},{1,{24,24},{375,500}},{1,{24,24},{675,625}},{1,{24,24},{425,625}},{1,{24,24},{425,950}},{1,{24,24},{200,75}},{1,{24,24},{825,475}},{1,{24,24},{400,925}},{2,{24,24},{100,250}},{1,{24,24},{250,300}},{1,{24,24},{875,425}},{1,{24,24},{775,750}},{1,{24,24},{0,375}},{1,{24,24},{300,650}},{1,{24,24},{350,700}},{1,{24,24},{150,500}},{1,{24,24},{325,950}},{1,{24,24},{350,925}},{1,{24,24},{425,850}},{1,{24,24},{525,750}},{1,{24,24},{500,775}},{1,{24,24},{600,675}},{2,{24,24},{25,100}},{1,{24,24},{200,50}},{1,{24,24},{675,600}},{1,{24,24},{725,550}},{1,{24,24},{550,575}},{1,{24,24},{275,75}},{1,{24,24},{825,450}},{1,{24,24},{925,350}},{1,{24,24},{950,325}},{1,{24,24},{400,250}},{1,{24,24},{950,200}},{1,{24,24},{250,25}},{1,{24,24},{325,925}},{1,{24,24},{675,650}},{2,{24,24},{200,225}},{1,{24,24},{275,975}},{1,{24,24},{425,475}},{1,{24,24},{475,775}},{1,{24,24},{525,725}},{1,{24,24},{150,850}},{1,{24,24},{550,700}},{1,{24,24},{650,600}},{1,{24,24},{75,700}},{1,{24,24},{750,500}},{1,{24,24},{875,700}},{1,{24,24},{925,175}},{1,{24,24},{75,900}},{1,{24,24},{0,450}},{1,{24,24},{800,450}},{1,{24,24},{200,950}},{1,{24,24},{950,300}},{1,{24,24},{975,275}},{1,{24,24},{975,850}},{1,{24,24},{150,50}},{1,{24,24},{0,50}},{1,{24,24},{875,600}},{1,{24,24},{50,125}},{1,{24,24},{350,875}},{1,{24,24},{25,75}},{1,{24,24},{500,725}},{1,{24,24},{675,200}},{1,{24,24},{25,675}},{1,{24,24},{525,450}},{1,{24,24},{400,325}},{1,{24,24},{275,175}},{1,{24,24},{150,825}},{1,{24,24},{375,925}},{1,{24,24},{700,375}},{1,{24,24},{550,275}},{1,{24,24},{600,625}},{1,{24,24},{700,150}},{1,{24,24},{625,600}},{1,{24,24},{650,575}},{1,{24,24},{125,250}},{1,{24,24},{0,950}},{1,{24,24},{475,650}},{1,{24,24},{600,275}},{1,{24,24},{575,100}},{1,{24,24},{575,275}},{1,{24,24},{775,450}},{1,{24,24},{700,525}},{1,{24,24},{800,425}},{1,{24,24},{975,975}},{1,{24,24},{0,300}},{1,{24,24},{875,350}},{1,{24,24},{675,375}},{1,{24,24},{525,600}},{1,{24,24},{150,700}},{1,{24,24},{525,225}},{1,{24,24},{225,975}},{1,{24,24},{250,950}},{1,{24,24},{700,450}},{1,{24,24},{275,925}},{1,{24,24},{375,375}},{1,{24,24},{300,450}},{1,{24,24},{350,850}},{1,{24,24},{700,175}},{1,{24,24},{950,275}},{1,{24,24},{825,400}},{1,{24,24},{350,50}},{1,{24,24},{925,25}},{1,{24,24},{400,800}},{1,{24,24},{500,275}},{1,{24,24},{450,750}},{2,{24,24},{50,25}},{1,{24,24},{975,150}},{1,{24,24},{625,350}},{1,{24,24},{525,675}},{1,{24,24},{200,775}},{1,{24,24},{650,100}},{1,{24,24},{550,650}},{1,{24,24},{525,625}},{1,{24,24},{625,575}},{1,{24,24},{600,600}},{1,{24,24},{0,875}},{1,{24,24},{675,525}},{1,{24,24},{675,350}},{1,{24,24},{475,0}},{1,{24,24},{150,75}},{1,{24,24},{550,800}},{1,{24,24},{125,375}},{1,{24,24},{150,900}},{1,{24,24},{900,250}},{1,{24,24},{850,350}},{1,{24,24},{275,375}},{1,{24,24},{875,325}},{1,{24,24},{450,100}},{1,{24,24},{0,250}},{1,{24,24},{600,925}},{1,{24,24},{900,300}},{1,{24,24},{450,200}},{1,{24,24},{275,900}},{1,{24,24},{650,475}},{1,{24,24},{250,400}},{1,{24,24},{150,425}},{1,{24,24},{600,250}},{1,{24,24},{175,725}},{1,{24,24},{850,625}},{1,{24,24},{325,225}},{1,{24,24},{225,500}},{1,{24,24},{900,650}},{1,{24,24},{450,725}},{1,{24,24},{550,175}},{1,{24,24},{550,125}},{1,{24,24},{125,600}},{1,{24,24},{0,200}},{1,{24,24},{150,100}},{1,{24,24},{525,650}},{1,{24,24},{550,625}},{1,{24,24},{625,550}},{1,{24,24},{250,850}},{1,{24,24},{700,475}},{1,{24,24},{825,350}},{1,{24,24},{25,600}},{1,{24,24},{375,325}},{1,{24,24},{700,0}},{1,{24,24},{125,925}},{1,{24,24},{450,625}},{1,{24,24},{600,75}},{1,{24,24},{550,100}},{1,{24,24},{100,225}},{1,{24,24},{350,775}},{1,{24,24},{675,100}},{1,{24,24},{450,275}},{1,{24,24},{875,850}},{1,{24,24},{400,625}},{1,{24,24},{975,200}},{1,{24,24},{825,425}},{1,{24,24},{175,650}},{1,{24,24},{100,850}},{1,{24,24},{950,700}},{1,{24,24},{175,125}},{1,{24,24},{100,50}},{1,{24,24},{775,625}},{1,{24,24},{125,50}},{1,{24,24},{850,150}},{1,{24,24},{50,25}},{1,{24,24},{325,825}},{1,{24,24},{350,800}},{1,{24,24},{400,750}},{1,{24,24},{275,875}},{1,{24,24},{300,125}},{1,{24,24},{800,0}},{1,{24,24},{650,950}},{1,{24,24},{550,550}},{1,{24,24},{500,650}},{1,{24,24},{325,475}},{1,{24,24},{475,725}},{2,{24,24},{125,0}},{1,{24,24},{475,600}},{1,{24,24},{425,650}},{2,{24,24},{150,50}},{1,{24,24},{200,300}},{1,{24,24},{850,300}},{1,{24,24},{0,100}},{1,{24,24},{925,225}},{1,{24,24},{325,275}},{1,{24,24},{775,25}},{1,{24,24},{500,75}},{1,{24,24},{100,825}},{1,{24,24},{725,975}},{1,{24,24},{375,275}},{1,{24,24},{775,425}},{1,{24,24},{300,525}},{1,{24,24},{575,25}},{1,{24,24},{275,850}},{1,{24,24},{575,200}},{1,{24,24},{300,825}},{1,{24,24},{725,650}},{2,{24,24},{225,100}},{1,{24,24},{675,550}},{1,{24,24},{500,625}},{1,{24,24},{800,475}},{2,{24,24},{275,50}},{1,{24,24},{800,325}},{1,{24,24},{850,275}},{1,{24,24},{975,125}},{1,{24,24},{875,250}},{1,{24,24},{950,175}},{1,{24,24},{275,825}},{1,{24,24},{800,375}},{1,{24,24},{600,225}},{1,{24,24},{850,650}},{1,{24,24},{375,400}},{1,{24,24},{225,0}},{1,{24,24},{275,25}},{1,{24,24},{750,300}},{2,{24,24},{150,200}},{1,{24,24},{475,200}},{1,{24,24},{475,625}},{1,{24,24},{400,225}},{2,{24,24},{25,0}},{1,{24,24},{225,50}},{1,{24,24},{475,675}},{1,{24,24},{600,200}},{1,{24,24},{375,250}},{1,{24,24},{475,375}},{1,{24,24},{450,650}},{1,{24,24},{350,500}},{1,{24,24},{650,825}},{1,{24,24},{925,100}},{1,{24,24},{300,600}},{1,{24,24},{200,225}},{1,{24,24},{125,875}},{1,{24,24},{25,125}},{1,{24,24},{150,925}},{1,{24,24},{225,325}},{1,{24,24},{700,100}},{1,{24,24},{525,300}},{1,{24,24},{175,900}},{1,{24,24},{150,375}},{1,{24,24},{200,875}},{1,{24,24},{800,250}},{1,{24,24},{300,575}},{1,{24,24},{850,250}},{1,{24,24},{75,25}},{1,{24,24},{675,0}},{2,{24,24},{225,75}},{1,{24,24},{325,675}},{1,{24,24},{800,525}},{1,{24,24},{300,775}},{1,{24,24},{350,725}},{1,{24,24},{225,775}},{1,{24,24},{650,525}},{1,{24,24},{675,475}},{1,{24,24},{375,700}},{1,{24,24},{350,200}},{1,{24,24},{25,900}},{1,{24,24},{525,550}},{1,{24,24},{375,125}},{1,{24,24},{625,525}},{1,{24,24},{575,500}},{1,{24,24},{600,475}},{1,{24,24},{250,525}},{1,{24,24},{925,75}},{1,{24,24},{200,125}},{1,{24,24},{675,400}},{1,{24,24},{500,700}},{1,{24,24},{275,750}},{1,{24,24},{450,600}},{1,{24,24},{25,50}},{1,{24,24},{675,300}},{1,{24,24},{900,175}},{1,{24,24},{350,75}},{1,{24,24},{525,875}},{1,{24,24},{725,875}},{1,{24,24},{725,475}},{1,{24,24},{250,50}},{2,{24,24},{100,0}},{1,{24,24},{900,925}},{2,{24,24},{50,400}},{1,{24,24},{250,800}},{1,{24,24},{750,75}},{1,{24,24},{550,350}},{1,{24,24},{800,175}},{1,{24,24},{825,75}},{1,{24,24},{275,775}},{1,{24,24},{300,975}},{1,{24,24},{350,125}},{1,{24,24},{475,125}},{1,{24,24},{125,450}},{1,{24,24},{725,0}},{1,{24,24},{750,600}},{1,{24,24},{250,475}},{1,{24,24},{350,350}},{1,{24,24},{375,675}},{1,{24,24},{725,350}},{1,{24,24},{725,575}},{1,{24,24},{550,25}},{1,{24,24},{750,325}},{1,{24,24},{500,550}},{1,{24,24},{0,25}},{1,{24,24},{575,475}},{1,{24,24},{700,350}},{1,{24,24},{400,700}},{1,{24,24},{825,225}},{1,{24,24},{850,200}},{1,{24,24},{875,175}},{1,{24,24},{50,725}},{1,{24,24},{300,0}},{1,{24,24},{475,425}},{1,{24,24},{875,750}},{1,{24,24},{150,875}},{1,{24,24},{225,300}},{1,{24,24},{350,100}},{1,{24,24},{325,700}},{1,{24,24},{175,250}},{1,{24,24},{375,650}},{1,{24,24},{475,550}},{1,{24,24},{350,675}},{1,{24,24},{300,625}},{1,{24,24},{900,200}},{1,{24,24},{600,425}},{1,{24,24},{450,425}},{1,{24,24},{650,375}},{1,{24,24},{625,25}},{1,{24,24},{50,550}},{1,{24,24},{625,250}},{1,{24,24},{500,100}},{1,{24,24},{500,175}},{1,{24,24},{250,450}},{2,{24,24},{175,100}},{1,{24,24},{975,875}},{1,{24,24},{100,950}},{1,{24,24},{825,200}},{1,{24,24},{650,175}},{1,{24,24},{850,175}},{1,{24,24},{325,75}},{1,{24,24},{300,800}},{1,{24,24},{175,575}},{1,{24,24},{900,125}},{1,{24,24},{300,275}},{1,{24,24},{100,900}},{1,{24,24},{375,100}},{1,{24,24},{175,825}},{1,{24,24},{175,300}},{1,{24,24},{250,750}},{1,{24,24},{275,250}},{1,{24,24},{400,175}},{1,{24,24},{925,975}},{1,{24,24},{300,700}},{1,{24,24},{550,450}},{2,{24,24},{350,50}},{1,{24,24},{775,925}},{1,{24,24},{675,150}},{1,{24,24},{500,875}},{1,{24,24},{475,525}},{1,{24,24},{500,500}},{1,{24,24},{575,425}},{1,{24,24},{625,375}},{1,{24,24},{725,275}},{1,{24,24},{600,300}},{1,{24,24},{275,200}},{1,{24,24},{350,425}},{1,{24,24},{775,225}},{1,{24,24},{800,200}},{1,{24,24},{675,325}},{1,{24,24},{800,675}},{1,{24,24},{725,500}},{1,{24,24},{975,25}},{1,{24,24},{0,975}},{1,{24,24},{450,325}},{1,{24,24},{175,200}},{1,{24,24},{575,525}},{1,{24,24},{225,275}},{1,{24,24},{350,25}},{1,{24,24},{700,550}},{1,{24,24},{100,875}},{1,{24,24},{325,250}},{1,{24,24},{175,800}},{1,{24,24},{250,725}},{1,{24,24},{850,100}},{1,{24,24},{300,675}},{1,{24,24},{325,650}},{1,{24,24},{800,50}},{1,{24,24},{375,600}},{1,{24,24},{675,775}},{1,{24,24},{425,250}},{1,{24,24},{575,225}},{1,{24,24},{325,500}},{1,{24,24},{475,175}},{1,{24,24},{400,575}},{1,{24,24},{125,650}},{1,{24,24},{75,275}},{1,{24,24},{600,375}},{1,{24,24},{725,600}},{1,{24,24},{750,150}},{1,{24,24},{925,50}},{1,{24,24},{850,125}},{1,{24,24},{75,875}},{1,{24,24},{525,350}},{1,{24,24},{175,625}},{1,{24,24},{250,700}},{1,{24,24},{100,150}},{1,{24,24},{175,400}},{1,{24,24},{275,675}},{1,{24,24},{275,475}},{1,{24,24},{450,800}},{1,{24,24},{250,100}},{1,{24,24},{400,550}},{1,{24,24},{575,350}},{1,{24,24},{275,500}},{1,{24,24},{475,475}},{1,{24,24},{75,550}},{1,{24,24},{900,800}},{1,{24,24},{575,950}},{1,{24,24},{475,950}},{1,{24,24},{575,375}},{1,{24,24},{650,300}},{1,{24,24},{675,275}},{1,{24,24},{725,225}},{1,{24,24},{775,175}},{1,{24,24},{825,125}},{1,{24,24},{250,375}},{1,{24,24},{800,150}},{1,{24,24},{325,200}},{1,{24,24},{125,800}},{1,{24,24},{725,400}},{1,{24,24},{375,550}},{2,{24,24},{25,200}},{1,{24,24},{50,850}},{1,{24,24},{525,400}},{1,{24,24},{175,975}},{2,{24,24},{0,250}},{2,{24,24},{50,350}},{1,{24,24},{400,350}},{1,{24,24},{150,0}},{1,{24,24},{925,0}},{1,{24,24},{25,875}},{1,{24,24},{950,350}},{2,{24,24},{125,125}},{1,{24,24},{350,225}},{1,{24,24},{325,575}},{1,{24,24},{375,525}},{1,{24,24},{225,725}},{1,{24,24},{125,325}},{1,{24,24},{325,0}},{1,{24,24},{675,975}},{1,{24,24},{150,550}},{1,{24,24},{25,325}},{1,{24,24},{650,200}},{1,{24,24},{650,250}},{1,{24,24},{725,175}},{1,{24,24},{900,75}},{1,{24,24},{775,125}},{1,{24,24},{25,475}},{1,{24,24},{875,25}},{1,{24,24},{275,425}},{1,{24,24},{725,150}},{1,{24,24},{850,50}},{1,{24,24},{525,975}},{1,{24,24},{100,775}},{1,{24,24},{200,675}},{1,{24,24},{325,550}},{1,{24,24},{550,225}},{1,{24,24},{75,625}},{2,{24,24},{75,375}},{1,{24,24},{625,400}},{1,{24,24},{900,100}},{2,{24,24},{50,200}},{1,{24,24},{825,50}},{1,{24,24},{75,775}},{1,{24,24},{750,625}},{1,{24,24},{225,625}},{1,{24,24},{150,175}},{1,{24,24},{750,350}},{1,{24,24},{875,825}},{1,{24,24},{200,975}},{1,{24,24},{350,625}},{1,{24,24},{825,25}},{1,{24,24},{0,675}},{1,{24,24},{50,700}},{1,{24,24},{0,825}},{1,{24,24},{125,700}},{1,{24,24},{750,725}},{1,{24,24},{375,450}},{1,{24,24},{575,250}},{1,{24,24},{950,475}},{1,{24,24},{575,125}},{1,{24,24},{550,200}},{1,{24,24},{50,750}},{1,{24,24},{150,650}},{1,{24,24},{100,25}},{1,{24,24},{250,550}},{1,{24,24},{275,525}},{1,{24,24},{525,275}},{1,{24,24},{325,400}},{1,{24,24},{950,225}},{1,{24,24},{550,250}},{1,{24,24},{700,400}},{1,{24,24},{325,875}},{1,{24,24},{150,475}},{1,{24,24},{575,675}},{1,{24,24},{150,625}},{1,{24,24},{650,425}},{1,{24,24},{300,475}},{1,{24,24},{50,525}},{1,{24,24},{525,250}},{1,{24,24},{600,175}},{1,{24,24},{675,50}},{1,{24,24},{725,50}},{1,{24,24},{750,25}},{1,{24,24},{125,225}},{1,{24,24},{0,500}},{1,{24,24},{475,850}},{1,{24,24},{200,550}},{1,{24,24},{0,150}},{1,{24,24},{125,475}},{1,{24,24},{400,475}},{1,{24,24},{350,600}},{1,{24,24},{350,400}},{1,{24,24},{625,175}},{1,{24,24},{275,150}},{1,{24,24},{875,50}},{1,{24,24},{575,175}},{1,{24,24},{700,50}},{1,{24,24},{50,100}},{1,{24,24},{800,25}},{1,{24,24},{350,375}},{1,{24,24},{450,350}},{1,{24,24},{225,225}},{1,{24,24},{650,75}},{1,{24,24},{0,700}},{1,{24,24},{0,475}},{1,{24,24},{625,325}},{1,{24,24},{600,100}},{1,{24,24},{525,800}},{1,{24,24},{900,275}},{1,{24,24},{250,825}},{1,{24,24},{325,325}},{1,{24,24},{150,350}},{1,{24,24},{300,950}},{1,{24,24},{750,750}},{1,{24,24},{0,625}},{2,{24,24},{125,75}},{1,{24,24},{325,300}},{1,{24,24},{350,275}},{1,{24,24},{850,850}},{1,{24,24},{625,0}},{1,{24,24},{0,600}},{1,{24,24},{25,575}},{1,{24,24},{575,50}},{1,{24,24},{175,950}},{1,{24,24},{600,0}},{1,{24,24},{75,175}},{1,{24,24},{425,350}},{1,{24,24},{275,300}},{1,{24,24},{50,225}},{1,{24,24},{475,575}},{1,{24,24},{275,950}},{1,{24,24},{400,25}},{1,{24,24},{500,575}},{1,{24,24},{0,525}},{1,{24,24},{950,925}},{1,{24,24},{350,175}},{1,{24,24},{125,625}},{1,{24,24},{175,325}},{1,{24,24},{425,75}},{1,{24,24},{25,450}},{1,{24,24},{250,775}},{1,{24,24},{100,975}},{1,{24,24},{925,675}},{1,{24,24},{200,175}},{2,{24,24},{225,125}},{1,{24,24},{225,75}},{1,{24,24},{125,100}}}}}
 local iconIndices: { string } = icons[1]
 local idIndices: { string } = icons[2]
 local iconRegistry: { [number]: { number | { number } } } = icons[3]
@@ -34383,8 +34220,6 @@ Escape Timer: %*]]
 			Blobman = v19:AddTab("<b>Blobman</b>", "venetian-mask"),
 			Toys = v19:AddTab("<b>Toys</b>", "shapes"),
 			Visual = v19:AddTab("<b>Visual</b>", "eye"),
-			AutoClicker = v19:AddTab("<b>Auto-Clicker</b>", "mouse-pointer-click"),
-			Keybinds = v19:AddTab("<b>Keybinds</b>", "keyboard"),
 			Misc = v19:AddTab("<b>Misc</b>", "funnel"),
 			Lists = v19:AddTab("<b>Lists</b>", "scroll-text"),
 			Settings = v19:AddTab("<b>Settings</b>", "settings"),
@@ -39920,615 +39755,6 @@ Escape Timer: %*]]
 		end
 	end
 
-	do
-		local selectedPlayersAC = tbl7.SelectedPlayersAC
-
-		tbl12.CreatePlayerDropdown(tbl15.AutoClicker:AddLeftGroupbox("Target", "user"), "AutoClicker", selectedPlayersAC, true, true, function()
-			if tbl12.SyncACPoseTargets then
-				tbl12.SyncACPoseTargets()
-			end
-		end)
-	end
-
-	do
-		local Config = tbl15.AutoClicker:AddLeftGroupbox("Config", "settings")
-
-		Config:AddToggle("AutoClicker", {
-			Text = "Toggle",
-			Default = false,
-			Callback = function(arg)
-				tbl12.SetRuntimeToggle("AutoClicker", arg)
-			end,
-		})
-
-		Config:AddToggle("IndependentACPoses", {
-			Text = "Independent Target Poses",
-			Default = false,
-			Tooltip = "Keeps separate position and limb settings for every selected target",
-			Callback = function(arg)
-				if arg then
-					local selectedACPoseTarget = tbl9.SelectedACPoseTarget
-					tbl9.SelectedACPoseTarget = nil
-					tbl8.IndependentACPoses = true
-
-					if tbl12.SyncACPoseTargets then
-						tbl12.SyncACPoseTargets(selectedACPoseTarget)
-					end
-				else
-					if tbl9.SelectedACPoseTarget then
-						tbl12.CaptureACPose(tbl9.SelectedACPoseTarget)
-					end
-
-					tbl8.IndependentACPoses = false
-				end
-			end,
-		})
-
-		local v20 = Config:AddDependencyBox()
-		v20:SetupDependencies({ { toggles.IndependentACPoses, true } })
-
-		v20:AddDropdown("ACPoseTarget", {
-			Values = {},
-			Default = nil,
-			Multi = false,
-			Searchable = true,
-			AllowNull = true,
-			Text = "Edit Target Pose",
-			FormatListValue = tbl12.FormatPlayer,
-			FormatDisplayValue = tbl12.FormatPlayer,
-			Callback = function(arg)
-				local v21
-
-				if type(arg) ~= "string" then
-					v21 = arg
-				else
-					v21 = Players:FindFirstChild(arg)
-				end
-
-				local selectedACPoseTarget = tbl9.SelectedACPoseTarget
-
-				if selectedACPoseTarget and selectedACPoseTarget ~= v21 then
-					tbl12.CaptureACPose(selectedACPoseTarget)
-				end
-
-				tbl9.SelectedACPoseTarget = v21
-
-				if v21 then
-					task.defer(tbl12.LoadACEditorPose, tbl7.AutoClickerTargetPoses[v21.UserId] or tbl12.CaptureACPose(v21))
-				end
-			end,
-		})
-
-		tbl12.SyncACPoseTargets = function(arg)
-			if not options.ACPoseTarget then
-				return
-			end
-
-			if tbl8.IndependentACPoses and tbl9.SelectedACPoseTarget then
-				tbl12.CaptureACPose(tbl9.SelectedACPoseTarget)
-			end
-
-			local tbl16 = {}
-
-			for k in pairs(tbl7.SelectedPlayersAC) do
-				if k and k.Parent then
-					tbl16[#tbl16 + 1] = k.Name
-
-					if tbl8.IndependentACPoses and not tbl7.AutoClickerTargetPoses[k.UserId] then
-						tbl12.CaptureACPose(k)
-					end
-				end
-			end
-
-			table.sort(tbl16, function(arg2, arg3)
-				return arg2:lower() < arg3:lower()
-			end)
-
-			options.ACPoseTarget:SetValues(tbl16)
-			local selectedACPoseTarget = arg or tbl9.SelectedACPoseTarget
-
-			if typeof(selectedACPoseTarget) == "Instance" then
-				selectedACPoseTarget = selectedACPoseTarget.Name
-			end
-
-			if not tbl8.IndependentACPoses then
-				selectedACPoseTarget = selectedACPoseTarget and not table.find(tbl16, selectedACPoseTarget)
-
-				if selectedACPoseTarget then
-					options.ACPoseTarget:SetValue(nil)
-				end
-
-				return
-			end
-
-			if not table.find(tbl16, selectedACPoseTarget) then
-				selectedACPoseTarget = tbl16[1]
-			end
-
-			options.ACPoseTarget:SetValue(selectedACPoseTarget)
-		end
-
-		Config:AddToggle("CustomACPoseCenter", {
-			Text = "Custom Pose Center",
-			Default = false,
-			Tooltip = "Centers every target pose around the selected player instead of you",
-			Callback = function(customACPoseCenter)
-				tbl8.CustomACPoseCenter = customACPoseCenter
-			end,
-		})
-
-		local v21 = Config:AddDependencyBox()
-		v21:SetupDependencies({ { toggles.CustomACPoseCenter, true } })
-
-		tbl12.CreatePlayerDropdown(v21, "ACPoseCenter", tbl7.SelectedACPoseCenters, false, false, function(selectedACPoseCenter)
-			tbl9.SelectedACPoseCenter = selectedACPoseCenter
-		end, "Pose Center")
-
-		Config:AddDivider("Position")
-
-		Config:AddSlider("ACCSecXO", {
-			Text = "X Offset",
-			Default = 0,
-			Min = -10,
-			Max = 10,
-			Compact = true,
-			Rounding = 1,
-			Callback = function(arg)
-				local autoClickerOffset = tbl9.AutoClickerOffset
-				tbl9.AutoClickerOffset = CFrame.new(arg, autoClickerOffset.Y, autoClickerOffset.Z)
-			end,
-		})
-
-		Config:AddSlider("ACCSecYO", {
-			Text = "Y Offset",
-			Default = 0,
-			Min = -5,
-			Max = 20,
-			Compact = true,
-			Rounding = 1,
-			Callback = function(arg)
-				local autoClickerOffset = tbl9.AutoClickerOffset
-				tbl9.AutoClickerOffset = CFrame.new(autoClickerOffset.X, arg, autoClickerOffset.Z)
-			end,
-		})
-
-		Config:AddSlider("ACCSecZO", {
-			Text = "Z Offset",
-			Default = -5,
-			Min = -10,
-			Max = 10,
-			Compact = true,
-			Rounding = 1,
-			Callback = function(arg)
-				local autoClickerOffset = tbl9.AutoClickerOffset
-				tbl9.AutoClickerOffset = CFrame.new(autoClickerOffset.X, autoClickerOffset.Y, arg)
-			end,
-		})
-
-		Config:AddSlider("ACCharacterTransparency", {
-			Text = "Targets Transparency",
-			Default = 0,
-			Min = 0,
-			Max = 1,
-			Rounding = 2,
-			Compact = true,
-			Callback = function(autoClickerTransparency)
-				tbl9.AutoClickerTransparency = autoClickerTransparency
-			end,
-		})
-	end
-
-	do
-		local v20 = tbl15.AutoClicker:AddRightTabbox()
-		local Offset = v20:AddTab("Offset", "move-diagonal")
-		local Rotation = v20:AddTab("Rotation", "refresh-cw")
-
-		Offset:AddDropdown("ACLimbO", {
-			Values = { "Head", "Right Leg", "Right Arm", "Left Leg", "Left Arm" },
-			Default = 1,
-			Multi = false,
-			Searchable = true,
-			Text = "Select limb",
-		})
-
-		Rotation:AddDropdown("ACLimbR", {
-			Values = { "Head", "Torso", "Right Leg", "Right Arm", "Left Leg", "Left Arm" },
-			Default = 1,
-			Multi = false,
-			Searchable = true,
-			Text = "Select limb",
-		})
-
-		for _, v21 in { "Head", "Torso", "Right Leg", "Right Arm", "Left Leg", "Left Arm" }, nil, nil do
-			local v22 = Rotation:AddDependencyBox()
-			v22:SetupDependencies({ { options.ACLimbR, v21 } })
-
-			v22:AddSlider("ACRSecXO" .. v21, {
-				Text = "X Rotation",
-				Default = 0,
-				Min = -180,
-				Max = 180,
-				Compact = true,
-				Rounding = 1,
-				Callback = function(arg)
-					local v23 = tbl7.ACRotation[v21]
-					tbl7.ACRotation[v21] = Vector3.new(arg, v23.Y, v23.Z)
-				end,
-			})
-
-			v22:AddSlider("ACRSecYO" .. v21, {
-				Text = "Y Rotation",
-				Default = 0,
-				Min = -180,
-				Max = 180,
-				Compact = true,
-				Rounding = 1,
-				Callback = function(arg)
-					local v23 = tbl7.ACRotation[v21]
-					tbl7.ACRotation[v21] = Vector3.new(v23.X, arg, v23.Z)
-				end,
-			})
-
-			v22:AddSlider("ACRSecZO" .. v21, {
-				Text = "Z Rotation",
-				Default = 0,
-				Min = -180,
-				Max = 180,
-				Compact = true,
-				Rounding = 1,
-				Callback = function(arg)
-					local v23 = tbl7.ACRotation[v21]
-					tbl7.ACRotation[v21] = Vector3.new(v23.X, v23.Y, arg)
-				end,
-			})
-
-			if v21 ~= "Torso" then
-				local v23 = Offset:AddDependencyBox()
-				v23:SetupDependencies({ { options.ACLimbO, v21 } })
-
-				v23:AddSlider("ACOSecXO" .. v21, {
-					Text = "X Offset",
-					Default = tbl7.ACOffset[v21].X,
-					Min = -5,
-					Max = 5,
-					Compact = true,
-					Rounding = 1,
-					Callback = function(arg)
-						local v24 = tbl7.ACOffset[v21]
-						tbl7.ACOffset[v21] = Vector3.new(arg, v24.Y, v24.Z)
-					end,
-				})
-
-				v23:AddSlider("ACOSecYO" .. v21, {
-					Text = "Y Offset",
-					Default = tbl7.ACOffset[v21].Y,
-					Min = -5,
-					Max = 5,
-					Compact = true,
-					Rounding = 1,
-					Callback = function(arg)
-						local v24 = tbl7.ACOffset[v21]
-						tbl7.ACOffset[v21] = Vector3.new(v24.X, arg, v24.Z)
-					end,
-				})
-
-				v23:AddSlider("ACOSecZO" .. v21, {
-					Text = "Z Offset",
-					Default = tbl7.ACOffset[v21].Z,
-					Min = -5,
-					Max = 5,
-					Compact = true,
-					Rounding = 1,
-					Callback = function(arg)
-						local v24 = tbl7.ACOffset[v21]
-						tbl7.ACOffset[v21] = Vector3.new(v24.X, v24.Y, arg)
-					end,
-				})
-			end
-		end
-	end
-
-	do
-		local Presets = tbl15.AutoClicker:AddRightGroupbox("Presets", "settings-2")
-		local tbl16 = {}
-
-		for k in tbl7.AutoClickerPoses, nil, nil do
-			table.insert(tbl16, k)
-		end
-
-		local v20 = writefile and readfile and isfile and makefolder and isfolder and listfiles and delfile
-		local str5 = "moonlight/AutoClickerPresets"
-
-		tbl12.LoadACPreset = function(arg)
-			return tbl12.LoadACEditorPose(arg)
-		end
-
-		tbl12.SyncACCustomPresets = function(arg)
-			if not options.ACCustomPoseS then
-				return
-			end
-			local tbl17 = {}
-
-			for k in tbl7.CustomACPresets, nil, nil do
-				table.insert(tbl17, k)
-			end
-
-			table.sort(tbl17, function(arg2, arg3)
-				return tostring(arg2):lower() < tostring(arg3):lower()
-			end)
-
-			options.ACCustomPoseS:SetValues(tbl17)
-			local selectedCustomACPose = arg or tbl9.SelectedCustomACPose
-			local acCustomPoseS = options.ACCustomPoseS
-			local setValue = acCustomPoseS.SetValue
-
-			if not table.find(tbl17, selectedCustomACPose) then
-				selectedCustomACPose = nil
-			end
-
-			setValue(acCustomPoseS, selectedCustomACPose)
-		end
-
-		tbl12.SaveACCustomPresets = function(arg, arg2)
-			if not v20 then
-				return false, "Your exploit does not support filesystem presets."
-			end
-
-			local ok = pcall(function()
-				if not isfolder("Moonlight") then
-					makefolder("Moonlight")
-				end
-
-				if not isfolder("moonlight/AutoClickerPresets") then
-					makefolder("moonlight/AutoClickerPresets")
-				end
-
-				writefile(str5 .. "/" .. arg .. ".json", HttpService:JSONEncode(arg2))
-			end)
-
-			local str6
-
-			if ok then
-				str6 = nil
-			else
-				str6 = "Couldn't write the preset file."
-			end
-
-			return ok, str6
-		end
-
-		if v20 then
-			if not pcall(function()
-				if not isfolder("Moonlight") then
-					makefolder("Moonlight")
-				end
-
-				if not isfolder("moonlight/AutoClickerPresets") then
-					makefolder("moonlight/AutoClickerPresets")
-				end
-
-				for _, v21 in ipairs(listfiles("moonlight/AutoClickerPresets")) do
-					if v21:sub(-5) == ".json" then
-						local match = v21:match("([^/\\]+)%.json$")
-
-						local ok, result = pcall(function()
-							return HttpService:JSONDecode(readfile(v21))
-						end)
-
-						if ok and typeof(result) == "table" then
-							tbl7.CustomACPresets[match] = result
-						end
-					end
-				end
-			end) then
-				fn18("Custom Auto-Clicker presets couldn't be loaded.")
-			end
-		end
-
-		Presets:AddDropdown("ACPoseS", {
-			Values = tbl16,
-			Default = 2,
-			Multi = false,
-			Searchable = true,
-			Text = "Choose Preset",
-			Callback = function(selectedACPose)
-				tbl9.SelectedACPose = selectedACPose
-			end,
-		})
-
-		Presets:AddButton({
-			Text = "Load Preset",
-			Func = function()
-				local v21 = tbl7.AutoClickerPoses[tbl9.SelectedACPose]
-				if not v21 then
-					return
-				end
-
-				if tbl12.LoadACPreset(v21) then
-					fn18("Successfully loaded preset!")
-				end
-			end,
-		})
-
-		Presets:AddDivider("Custom")
-
-		Presets:AddInput("ACCustomPresetName", {
-			Text = "Preset Name",
-			Placeholder = "Type a custom preset name",
-			Default = "",
-			Callback = function(arg)
-				tbl9.CustomACPresetName = tostring(arg or "")
-			end,
-		})
-
-		Presets:AddDropdown("ACCustomPoseS", {
-			Values = {},
-			Default = nil,
-			Multi = false,
-			Searchable = true,
-			AllowNull = true,
-			Text = "Custom Preset",
-			Callback = function(selectedCustomACPose)
-				tbl9.SelectedCustomACPose = selectedCustomACPose
-			end,
-		})
-
-		tbl12.SyncACCustomPresets()
-		local flag12 = not v20
-
-		if flag12 then
-			options.ACCustomPresetName:SetDisabled(true)
-			options.ACCustomPoseS:SetDisabled(true)
-		end
-
-		Presets:AddButton({
-			Text = "Save Current Preset",
-			Disabled = flag12,
-			DisabledTooltip = "Your exploit is missing readfile/writefile support.",
-			Func = function()
-				local str6 = tostring(tbl9.CustomACPresetName or ""):gsub("^%s+", ""):gsub("%s+$", ""):gsub("[%c<>:\"/\\|%?%*]", "")
-				if str6 == "" then
-					fn18("Enter a preset name first.")
-					return
-				end
-				local v21 = tbl7.CustomACPresets[str6]
-				local tbl17 = {}
-				local bodyPos = {}
-				local num = tonumber(string.format("%.1f", tbl9.AutoClickerOffset.X))
-				local num2 = tonumber(string.format("%.1f", tbl9.AutoClickerOffset.Y))
-				local v22 = tonumber
-				local format = string.format
-				local z = tbl9.AutoClickerOffset.Z
-				bodyPos[1] = num
-				bodyPos[2] = num2
-
-				do
-					local values = table.pack(v22(format("%.1f", z)))
-					table.move(values, 1, values.n, 3, bodyPos)
-				end
-
-				tbl17.BodyPos = bodyPos
-				tbl17.LimbOffsets = {}
-
-				for k, v23 in tbl7.ACRotation, nil, nil do
-					local tbl18 = {}
-					local num3 = tonumber(string.format("%.1f", v23.X))
-					local num4 = tonumber(string.format("%.1f", v23.Y))
-					local v24 = tonumber
-					local format2 = string.format
-					local z2 = v23.Z
-					tbl18[1] = num3
-					tbl18[2] = num4
-
-					do
-						local values = table.pack(v24(format2("%.1f", z2)))
-						table.move(values, 1, values.n, 3, tbl18)
-					end
-
-					tbl17[k] = tbl18
-				end
-
-				for k, v23 in tbl7.ACOffset, nil, nil do
-					local limbOffsets = tbl17.LimbOffsets
-					local tbl18 = {}
-					local num3 = tonumber(string.format("%.1f", v23.X))
-					local num4 = tonumber(string.format("%.1f", v23.Y))
-					local v24 = tonumber
-					local format2 = string.format
-					local z2 = v23.Z
-					tbl18[1] = num3
-					tbl18[2] = num4
-
-					do
-						local values = table.pack(v24(format2("%.1f", z2)))
-						table.move(values, 1, values.n, 3, tbl18)
-					end
-
-					limbOffsets[k] = tbl18
-				end
-
-				tbl7.CustomACPresets[str6] = tbl17
-				local v23, v24 = tbl12.SaveACCustomPresets(str6, tbl17)
-
-				if not v23 then
-					tbl7.CustomACPresets[str6] = v21
-					fn18("Couldn't save custom preset: " .. v24)
-					return
-				end
-
-				tbl12.SyncACCustomPresets(str6)
-				options.ACCustomPresetName:SetValue(str6)
-				local v25 = fn18
-				local str7
-
-				if v21 then
-					str7 = "Updated custom preset!"
-				else
-					str7 = "Saved custom preset!"
-				end
-
-				v25(str7)
-			end,
-		})
-
-		Presets:AddButton({
-			Text = "Load Custom Preset",
-			Disabled = flag12,
-			DisabledTooltip = "Your exploit is missing readfile/writefile support.",
-			Func = function()
-				if not tbl9.SelectedCustomACPose then
-					fn18("Select a custom preset first.")
-					return
-				end
-				local v21 = tbl7.CustomACPresets[tbl9.SelectedCustomACPose]
-
-				if not v21 then
-					fn18("That custom preset doesn't exist anymore.")
-					tbl12.SyncACCustomPresets()
-					return
-				end
-
-				if tbl12.LoadACPreset(v21) then
-					options.ACCustomPresetName:SetValue(tbl9.SelectedCustomACPose)
-					fn18("Successfully loaded custom preset!")
-				end
-			end,
-		})
-
-		Presets:AddButton({
-			Text = "Delete Custom Preset",
-			Disabled = flag12,
-			DisabledTooltip = "Your exploit is missing readfile/writefile support.",
-			DoubleClick = true,
-			Risky = true,
-			Func = function()
-				if not tbl9.SelectedCustomACPose then
-					fn18("Select a custom preset first.")
-					return
-				end
-				local v21 = tbl7.CustomACPresets[tbl9.SelectedCustomACPose]
-				tbl7.CustomACPresets[tbl9.SelectedCustomACPose] = nil
-
-				if not pcall(function()
-					delfile(str5 .. "/" .. tbl9.SelectedCustomACPose .. ".json")
-				end) then
-					tbl7.CustomACPresets[tbl9.SelectedCustomACPose] = v21
-					fn18("Couldn't delete custom preset.")
-					return
-				end
-
-				tbl9.SelectedCustomACPose = nil
-				options.ACCustomPresetName:SetValue("")
-				tbl12.SyncACCustomPresets()
-				fn18("Deleted custom preset!")
-			end,
-		})
-
-		if flag12 then
-			Presets:AddLabel("Custom presets require readfile/writefile support.", true)
-		end
-	end
-
 	tbl12.GetTarget = function()
 		if not lib.IsMobile and mouse then
 			return mouse.Target
@@ -40620,377 +39846,6 @@ Escape Timer: %*]]
 		end
 		v20:Destroy()
 		tbl7.ActiveDraggableButtons[arg] = nil
-	end
-
-	do
-		local LocalPlayer = tbl15.Keybinds:AddLeftGroupbox("LocalPlayer", "user")
-
-		LocalPlayer:AddToggle("SmoothClickTP", {
-			Text = "Smooth Click TP",
-			Default = false,
-			Callback = function(smoothClickTP)
-				tbl8.SmoothClickTP = smoothClickTP
-			end,
-		})
-
-		local n36 = 0
-
-		tbl12.AddKeybind(LocalPlayer, "ClickTPKey", "Click TP", "", "Press", function()
-			if not tbl12.GetTarget() then
-				return
-			end
-			n36 += 1
-			local v20 = n36
-			local v21, assemblyRootPart = tbl12.Char()
-			assemblyRootPart = assemblyRootPart and assemblyRootPart.AssemblyRootPart
-			local v22 = tbl12.GetHit()
-			if not assemblyRootPart or not v22 then
-				return
-			end
-			local position = assemblyRootPart.Position
-			local n37 = v22.Position + Vector3.new(0, 3, 0)
-			local n38 = assemblyRootPart.CFrame - assemblyRootPart.Position
-			if not tbl8.SmoothClickTP then
-				tbl12.Teleport(assemblyRootPart, CFrame.new(n37) * n38)
-				return
-			end
-			local now2 = tick()
-
-			while true do
-				if v20 ~= n36 then
-					return
-				else
-					local n39 = math.min((tick() - now2) / 0.3, 1)
-					local n40 = n39 * (2 - n39)
-					tbl12.Teleport(assemblyRootPart, CFrame.new(position:Lerp(n37, n40)) * n38)
-					task.wait()
-					if not (n40 >= 1) then
-						continue
-					end
-					break
-				end
-			end
-		end)
-
-		tbl12.AddKeybind(LocalPlayer, "ResetCharKey", "Reset Character", nil, "Press", function()
-			local v20, v21, v22 = tbl12.Char()
-
-			if v22 and v22.Health ~= 0 then
-				v22.Health = 0
-				v22:ChangeState(Enum.HumanoidStateType.Dead)
-			end
-		end)
-
-		tbl12.AddKeybind(LocalPlayer, "SitOnBlobmanKey", "Sit on Blobman", nil, "Press", function()
-			tbl14.Sit()
-		end)
-
-		tbl12.AddKeybind(LocalPlayer, "ZoomKey", "Zoom", nil, "Toggle", function(zoom)
-			tbl8.Zoom = zoom
-
-			if zoom then
-				pcall(function()
-					RunService:UnbindFromRenderStep("RSCZoom")
-				end)
-
-				RunService:BindToRenderStep("RSCZoom", Enum.RenderPriority.Camera.Value + 1, tbl12.UpdateZoomCamera)
-				cFrame = currentCamera.CFrame
-				tbl12.TweenFOV(tbl9.ZoomFOV, 0.35)
-			else
-				pcall(function()
-					RunService:UnbindFromRenderStep("RSCZoom")
-				end)
-
-				cFrame = nil
-				tbl12.TweenFOV(fieldOfView, 0.35)
-			end
-		end)
-
-		tbl12.AddKeybind(LocalPlayer, "OwnSelfKey", "Escape any Grab", nil, "Press", tbl12.ExtraEscape)
-		LocalPlayer:AddDivider()
-
-		tbl12.AddKeybind(LocalPlayer, "RemoveLegsKey1", "Remove legs", nil, "Press", function()
-			tbl12.BreakLimb(localPlayer, "Legs")
-		end)
-
-		tbl12.AddKeybind(LocalPlayer, "RemoveArmsKey1", "Remove arms", nil, "Press", function()
-			tbl12.BreakLimb(localPlayer, "Arms")
-		end)
-
-		tbl12.AddKeybind(LocalPlayer, "RemoveAllKey1", "Remove legs and arms", nil, "Press", function()
-			tbl12.BreakLimb(localPlayer, "All")
-		end)
-
-		LocalPlayer:AddDivider()
-
-		tbl12.AddKeybind(LocalPlayer, "FrontflipKey", "Frontflip", nil, "Press", function()
-			local v20, v21, v22 = tbl12.Char()
-
-			if v20 and v21 and v22 and v22.Health ~= 0 and not tbl8.GucciAntiGrab and not tbl8.Invisibility then
-				v22:ChangeState("Jumping")
-				task.wait()
-				v22.Sit = true
-
-				for i = 1, 360 do
-					task.delay(i / 720, function()
-						v22.Sit = true
-						v21.CFrame = v21.CFrame * CFrame.Angles(-0.0174533, 0, 0)
-					end)
-				end
-
-				task.wait(0.55)
-				v22.Sit = false
-			end
-		end)
-
-		tbl12.AddKeybind(LocalPlayer, "BackflipKey", "Backflip", nil, "Press", function()
-			local v20, v21, v22 = tbl12.Char()
-
-			if v20 and v21 and v22 and v22.Health ~= 0 and not tbl8.GucciAntiGrab and not tbl8.Invisibility then
-				v22:ChangeState("Jumping")
-				task.wait()
-				v22.Sit = true
-
-				for i = 1, 360 do
-					task.delay(i / 720, function()
-						v22.Sit = true
-						v21.CFrame = v21.CFrame * CFrame.Angles(0.0174533, 0, 0)
-					end)
-				end
-
-				task.wait(0.55)
-				v22.Sit = false
-			end
-		end)
-	end
-
-	do
-		local Players2 = tbl15.Keybinds:AddRightGroupbox("Players", "users-round")
-
-		tbl12.AddKeybind(Players2, "rmgucciplr", "Remove Gucci Plr", nil, "Press", function()
-			local v20 = tbl12.GetTarget()
-
-			if v20 and v20.Parent and Players:FindFirstChild(v20.Parent.Name) then
-				tbl12.RemoveGucci(Players:FindFirstChild(v20.Parent.Name))
-			end
-		end)
-
-		tbl12.AddKeybind(Players2, "bringplr", "Bring Player", nil, "Press", function()
-			local v20 = tbl12.GetTarget()
-			local playerFromCharacter = v20 and v20.Parent and Players:GetPlayerFromCharacter(v20.Parent)
-
-			if playerFromCharacter then
-				tbl12.BringPlayer(playerFromCharacter)
-			end
-		end)
-
-		tbl12.AddKeybind(Players2, "killplr", "Kill Player", nil, "Press", function()
-			local v20 = tbl12.GetTarget()
-
-			if v20 and Players:FindFirstChild(v20.Parent.Name) then
-				local v21 = Players:FindFirstChild(v20.Parent.Name)
-				tbl12.Kill(v21)
-			end
-		end)
-
-		tbl12.AddKeybind(Players2, "bkickplr", "Blob Kick Player", nil, "Press", function()
-			local v20 = tbl12.GetTarget()
-
-			if v20 and Players:FindFirstChild(v20.Parent.Name) then
-				local v21 = Players:FindFirstChild(v20.Parent.Name)
-				tbl14.Sit()
-
-				repeat
-					task.wait()
-				until parent
-
-				tbl14.Kick(v21)
-				task.wait(0.1)
-
-				if parent then
-					tbl12.DestroyToy(parent)
-				end
-			end
-		end)
-
-		Players2:AddDivider()
-
-		tbl12.AddKeybind(Players2, "RemoveLegsKey", "Remove Legs Mouse", nil, "Press", function()
-			local v20 = tbl12.GetTarget()
-			if not v20 then
-				return
-			end
-			local v21 = Players:FindFirstChild(v20.Parent.Name)
-			if not v21 then
-				return
-			end
-			tbl12.BreakLimb(v21, "Legs")
-		end)
-
-		tbl12.AddKeybind(Players2, "RemoveArmsKey", "Remove Arms Mouse", nil, "Press", function()
-			local v20 = tbl12.GetTarget()
-			if not v20 then
-				return
-			end
-			local v21 = Players:FindFirstChild(v20.Parent.Name)
-			if not v21 then
-				return
-			end
-			tbl12.BreakLimb(v21, "Arms")
-		end)
-
-		tbl12.AddKeybind(Players2, "RemoveAllKey", "Remove Legs & Arms Mouse", nil, "Press", function()
-			local v20 = tbl12.GetTarget()
-			if not v20 then
-				return
-			end
-			local v21 = Players:FindFirstChild(v20.Parent.Name)
-			if not v21 then
-				return
-			end
-			tbl12.BreakLimb(v21, "All")
-		end)
-	end
-
-	do
-		local Objects = tbl15.Keybinds:AddRightGroupbox("Objects", "boxes")
-
-		tbl12.AddKeybind(Objects, "SpawnPallet", "Spawn Pallet", nil, "Press", function()
-			tbl11.SpawnToy:InvokeServer("PalletLightBrown", currentCamera.CFrame, workspace.RotateOrientPart.Rotation)
-		end)
-
-		tbl12.AddKeybind(Objects, "anchorobject", "Anchor Object", nil, "Press", tbl12.ToggleAnchor)
-
-		tbl12.AddKeybind(Objects, "destroyobject", "Destroy Object", nil, "Press", function()
-			local parent2 = tbl12.GetTarget()
-			parent2 = parent2 and parent2.Parent
-
-			if parent2 then
-				tbl12.DestroyObject(parent2)
-			end
-		end)
-
-		tbl12.AddKeybind(Objects, "AutoClicker", "Auto Clicker", nil, "Press", function()
-			local v20 = tbl12.GetTarget()
-			local parent2 = v20 and v20.Parent
-
-			if not parent2 or tbl7.AutoClicker[parent2] or parent2:IsDescendantOf(map) then
-				if parent2 then
-					tbl7.AutoClicker[parent2] = nil
-				end
-
-				return
-			end
-
-			local flag12 = nil
-
-			if Players:FindFirstChild(parent2.Name) then
-				flag12 = true
-			end
-
-			local highlight = Instance.new("Highlight")
-			highlight.Adornee = parent2
-			highlight.Parent = parent2
-			highlight.FillColor = Color3.fromRGB(152, 171, 28)
-			tbl7.AutoClicker[parent2] = true
-
-			if flag12 and parent2:FindFirstChild("HumanoidRootPart") then
-				local humanoidRootPart = parent2:FindFirstChild("HumanoidRootPart")
-				local humanoid = parent2:FindFirstChild("Humanoid")
-				local bodyPosition = Instance.new("BodyPosition")
-				bodyPosition.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-				bodyPosition.D = 100
-				bodyPosition.Position = humanoidRootPart.Position
-				bodyPosition.Parent = humanoidRootPart
-
-				task.spawn(function()
-					while true do
-						if tbl7.AutoClicker[parent2] and humanoidRootPart.Parent and humanoid and humanoid.Parent and humanoid.Health ~= 0 and fn20() then
-							local v21, v22 = tbl12.Char()
-
-							if not v22 then
-								continue
-							elseif not humanoidRootPart:IsDescendantOf(workspace.PlotItems) then
-								task.spawn(tbl12.Ragdoll, parent2)
-
-								if tbl12.GetMagnitude(v22, humanoidRootPart) <= 32 then
-									bodyPosition.Parent = humanoidRootPart
-									highlight.Enabled = true
-									tbl12.Grab(humanoidRootPart)
-								else
-									bodyPosition.Parent = nil
-									bodyPosition.Position = humanoidRootPart.Position
-									highlight.Enabled = false
-								end
-
-								continue
-							end
-						end
-
-						break
-					end
-
-					tbl7.AutoClicker[parent2] = nil
-					tbl12.RNO(humanoidRootPart)
-					highlight:Destroy()
-					bodyPosition:Destroy()
-				end)
-			elseif not flag12 then
-				if not tbl12.FindNicePart(parent2) then
-					tbl7.AutoClicker[parent2] = false
-					return
-				end
-
-				task.spawn(function()
-					while tbl7.AutoClicker[parent2] and v20.Parent and fn20() do
-						local v21, v22 = tbl12.Char()
-
-						if v22 then
-							if tbl12.GetMagnitude(v22, v20) <= 20 then
-								highlight.Enabled = true
-								tbl12.Grab(v20)
-							else
-								highlight.Enabled = false
-							end
-						end
-					end
-
-					tbl7.AutoClicker[parent2] = nil
-					tbl12.RNO(v20)
-					highlight:Destroy()
-				end)
-			end
-		end)
-
-		tbl12.AddKeybind(Objects, "ControlObject", "Control Object", nil, "Press", function()
-			local parent2 = tbl12.GetTarget()
-			parent2 = parent2 and parent2.Parent
-
-			if parent2 or tbl8.ControllingSomeone then
-				tbl12.ControlCharacter(parent2)
-			end
-		end)
-
-		tbl12.AddKeybind(Objects, "ExpOnMouse", "Explode on Mouse", nil, "Press", function()
-			tbl12.ExplodeMissile(tbl12.GetHit().Position, "BombMissile")
-		end)
-	end
-
-	do
-		local v20 = tbl15.Keybinds:AddLeftGroupbox("Mobile Buttons", "smartphone")
-		local MobileKeybindsList = v20:AddDropdown("MobileKeybindsList", { Values = tbl7.KeybindNames, Default = 1, Multi = false, Text = "Select Keybind to Map" })
-
-		v20:AddButton({
-			Text = "Create Button",
-			Func = function()
-				tbl12.AddMobileButton(MobileKeybindsList.Value)
-			end,
-		}):AddButton({
-			Text = "Remove Button",
-			Func = function()
-				tbl12.RemoveMobileButton(MobileKeybindsList.Value)
-			end,
-		})
 	end
 
 	do
@@ -42660,7 +41515,7 @@ Rejoined: %rejoinedPlayer%, %listCount%]],
 		"GroupOutline",
 	})
 
-	lib3:SetFolder("moonlight/FTAP")
+	lib3:SetFolder("Moonlight/FTAP")
 	lib3:BuildConfigSection(tbl15.Settings)
 	lib3:LoadAutoloadConfig()
 
@@ -43002,7 +41857,7 @@ local function requireModule(name)
     assert(not loading[name], "Circular module dependency: " .. tostring(name))
     assert(type(sources[name]) == "string", "Missing module: " .. tostring(name))
     loading[name] = true
-    local chunk, message = loadstring(sources[name], "@moonlight/" .. name)
+    local chunk, message = loadstring(sources[name], "@Moonlight/" .. name)
     assert(chunk, message)
     local ok, result = pcall(chunk, requireModule)
     loading[name] = nil
@@ -43013,24 +41868,19 @@ local function requireModule(name)
 end
 local reloadPath
 local ok, result = xpcall(function()
-    local introOk, introError = pcall(function()
-        local played, message = requireModule("Intro").Play()
-        assert(played, message)
-    end)
-    if not introOk then  end
     if type(writefile) == "function" and type(readfile) == "function" then
         local success = pcall(function()
             local lines = {"local sources = {}"}
-            for _, name in ipairs({"Intro", "Library", "ThemeManager", "SaveManager", "Icons", "Main", "Bootstrap"}) do
+            for _, name in ipairs({"Library", "ThemeManager", "SaveManager", "Icons", "Main", "Bootstrap"}) do
                 lines[#lines + 1] = string.format("sources[%q] = %q", name, sources[name])
             end
-            lines[#lines + 1] = 'local run, message = loadstring(sources.Bootstrap, "@moonlight/Bootstrap"); assert(run, message); return run(sources)'
-            writefile("MoonlightRestored.lua", table.concat(lines, "\n"))
-            assert(type(readfile("MoonlightRestored.lua")) == "string")
+            lines[#lines + 1] = 'local run, message = loadstring(sources.Bootstrap, "@Moonlight/Bootstrap"); assert(run, message); return run(sources)'
+            writefile("Moonlight.lua", table.concat(lines, "\n"))
+            assert(type(readfile("Moonlight.lua")) == "string")
         end)
-        if success then reloadPath = "MoonlightRestored.lua" end
+        if success then reloadPath = "Moonlight.lua" end
     end
-    local chunk, message = loadstring(sources.Main, "@moonlight/Main")
+    local chunk, message = loadstring(sources.Main, "@Moonlight/Main")
     assert(chunk, message)
     return chunk(requireModule, reloadPath, registerCleanup)
 end, function(message)
@@ -43046,6 +41896,6 @@ if not ok then
 end
 return result
 ]====]
-local run, message = loadstring(sources.Bootstrap, "@moonlight/Bootstrap")
+local run, message = loadstring(sources.Bootstrap, "@Moonlight/Bootstrap")
 assert(run, message)
 return run(sources)
