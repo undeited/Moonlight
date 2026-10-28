@@ -37984,19 +37984,41 @@ Escape Timer: %*]]
 					return
 				end
 				tbl7.States.DestroyingToys = true
-				local tbl16 = {}
 
-				for _, inventory in pairs(tbl7.Inventories) do
-					for _, child in pairs(inventory:GetChildren()) do
-						if child:IsA("Model") then
-							tbl16[#tbl16 + 1] = child
+				local menuToys = ReplicatedStorage:FindFirstChild("MenuToys")
+				local destroyRemote = menuToys and menuToys:FindFirstChild("DestroyToy")
+
+				if not (destroyRemote and destroyRemote:IsA("RemoteEvent")) then
+					destroyRemote = nil
+				end
+
+				local ownFolder = workspace:FindFirstChild(localPlayer.Name .. "SpawnedInToys")
+				local toys = {}
+				local legacy = {}
+
+				if ownFolder then
+					for _, object in ipairs(ownFolder:GetDescendants()) do
+						if object:IsA("Model") then
+							toys[#toys + 1] = object
 						end
 					end
 				end
 
+				for _, inventory in pairs(tbl7.Inventories) do
+					if inventory ~= ownFolder and not inventory.Name:match("SpawnedInToys$") then
+						for _, child in pairs(inventory:GetChildren()) do
+							if child:IsA("Model") then
+								legacy[#legacy + 1] = child
+							end
+						end
+					end
+				end
+
+				local total = #toys + #legacy
+
 				local v24 = lib:Notify({
 					Title = "Moonlight",
-					Description = "Destroyed 0/" .. #tbl16 .. " toys",
+					Description = "Destroyed 0/" .. total .. " toys",
 					Persist = true,
 					SoundId = n34,
 					BigIcon = "rbxassetid://79685990879972",
@@ -38004,9 +38026,27 @@ Escape Timer: %*]]
 					IconColor = Color3.new(1, 1, 1),
 				})
 
-				for i, v25 in ipairs(tbl16) do
-					tbl12.DestroyObject(v25)
-					v24:ChangeDescription("Destroyed " .. i .. "/" .. #tbl16 .. " toys")
+				local done = 0
+
+				for _, toy in ipairs(toys) do
+					if toy.Parent then
+						pcall(function()
+							if destroyRemote then
+								destroyRemote:FireServer(toy)
+							else
+								toy:Destroy()
+							end
+						end)
+					end
+
+					done += 1
+					v24:ChangeDescription("Destroyed " .. done .. "/" .. total .. " toys")
+				end
+
+				for _, toy in ipairs(legacy) do
+					tbl12.DestroyObject(toy)
+					done += 1
+					v24:ChangeDescription("Destroyed " .. done .. "/" .. total .. " toys")
 				end
 
 				while tbl9.DestroyThread and not flag11 do
