@@ -38263,7 +38263,12 @@ Escape Timer: %*]]
 				end
 
 				local held = beingHeld(character, player)
-				local physical = held or seatPart ~= nil or isRagdolled(humanoid)
+				groundParams.FilterDescendantsInstances = { character }
+
+				local floorHit = workspace:Raycast(rootPart.Position, Vector3.new(0, -6, 0), groundParams)
+				local floorRoot = floorHit and floorHit.Instance.AssemblyRootPart
+				local onItem = floorRoot ~= nil and not floorRoot.Anchored
+				local physical = held or seatPart ~= nil or onItem or isRagdolled(humanoid)
 
 				if physical then
 					lastPhysical[player] = now3
@@ -38506,7 +38511,7 @@ Escape Timer: %*]]
 
 			Toggles:AddToggle("CheaterESPT", {
 				Text = "Cheater ESP",
-				Tooltip = "Highlights players showing signs of cheating: Gucci, shuriken in root part, Blobman grabs, invisibility, speed, flying, noclip, underground, spinning/flinging, teleporting and toy spam",
+				Tooltip = "Highlights players showing signs of cheating (ignores ragdolled, held, seated and item-riding players): Gucci, shuriken in root part, Blobman grabs, invisibility, speed, flying, noclip, underground, spinning/flinging, teleporting and toy spam",
 				Default = false,
 				Callback = function(cheaterESP)
 					tbl8.CheaterESP = cheaterESP and not flag11
