@@ -28862,7 +28862,7 @@ end
 						if not canContinue() then
 							break
 						end
-						v22.CreatureGrab:FireServer(v22.RightDetector, v27, rightWeld)
+						v22.CreatureGrab:FireServer(nil, v27, rightWeld)
 					end
 
 					if isHeld() then
@@ -28876,7 +28876,7 @@ end
 				currentCamera.CameraType = oldCameraType == Enum.CameraType.Scriptable and Enum.CameraType.Custom or oldCameraType
 			else
 				while canContinue() and not isHeld() and tick() - now3 < timeout do
-					v22.CreatureGrab:FireServer(v22.RightDetector, v27, rightWeld)
+					v22.CreatureGrab:FireServer(nil, v27, rightWeld)
 					task.wait(0.05)
 				end
 
@@ -28895,6 +28895,8 @@ end
 			if not parent then
 				return
 			end
+
+			tbl14.StopHold()
 			local v22 = tbl14.GetBlobmanComponents()
 			if not (v22 and v22.CreatureGrab and v22.CreatureRelease and v22.RightWeld and v22.RightDetector) then
 				return
@@ -28971,7 +28973,7 @@ end
 							end
 
 							task.wait(0.011111111111111112)
-							v22.CreatureGrab:FireServer(v22.RightDetector, v27, v22.RightWeld)
+							v22.CreatureGrab:FireServer(nil, v27, v22.RightWeld)
 							task.wait(0.011111111111111112)
 							v22.CreatureRelease:FireServer(v22.RightWeld)
 							continue
@@ -29089,7 +29091,7 @@ end
 					if v26.Root.Parent then
 						tbl12.Grab(v26.Root)
 						tbl12.RNO(v26.Root)
-						v22.CreatureGrab:FireServer(v22.RightDetector, v26.Root, v22.RightWeld)
+						v22.CreatureGrab:FireServer(nil, v26.Root, v22.RightWeld)
 
 						if tbl8.DeleteShurInBlobK then
 							task.spawn(tbl12.RemoveSticky, v26.Character)
@@ -29099,7 +29101,7 @@ end
 					end
 				end
 
-				v22.CreatureGrab:FireServer(v22.RightDetector, v24, v22.RightWeld)
+				v22.CreatureGrab:FireServer(nil, v24, v22.RightWeld)
 
 				local n36 = os.clock() + 2
 
@@ -29402,6 +29404,68 @@ end
 			end
 		end
 
+		tbl14.HoldEntry = nil
+		tbl14.HoldConnection = nil
+
+		tbl14.StopHold = function()
+			if tbl14.HoldConnection then
+				tbl14.HoldConnection:Disconnect()
+				tbl14.HoldConnection = nil
+			end
+
+			local entry = tbl14.HoldEntry
+			tbl14.HoldEntry = nil
+
+			if entry then
+				for _, object in ipairs(entry.Objects) do
+					if object.Parent then
+						object:Destroy()
+					end
+				end
+			end
+		end
+
+		tbl14.StartHold = function(player)
+			local entry = tbl14.HoldEntry
+
+			if entry and entry.Player == player and entry.Root.Parent and entry.Position.Parent then
+				return
+			end
+
+			tbl14.StopHold()
+
+			local _, root = tbl12.Char(player)
+
+			if not root then
+				return
+			end
+
+			local alignPosition, alignOrientation = tbl12.CreateAlign(root, true)
+
+			entry = {
+				Player = player,
+				Root = root,
+				Position = alignPosition,
+				Orientation = alignOrientation,
+				Objects = { alignPosition, alignOrientation },
+			}
+
+			tbl14.HoldEntry = entry
+
+			tbl14.HoldConnection = RunService.Heartbeat:Connect(function()
+				local components = tbl14.GetBlobmanComponents()
+				local hand = components and components.RightDetector
+
+				if flag11 or not hand or not entry.Root.Parent or not alignPosition.Parent then
+					tbl14.StopHold()
+					return
+				end
+
+				alignPosition.Position = hand.Position
+				alignOrientation.CFrame = hand.CFrame
+			end)
+		end
+
 		tbl14.GrabHold = function(arg)
 			local components = tbl14.GetBlobmanComponents()
 
@@ -29415,7 +29479,13 @@ end
 				components.RightOri.Enabled = true
 			end
 
-			return tbl14.Grab(arg)
+			local held = tbl14.Grab(arg)
+
+			if held then
+				tbl14.StartHold(arg)
+			end
+
+			return held
 		end
 
 		tbl14.Kill = function(arg)
@@ -29598,7 +29668,7 @@ end
 					end
 
 					if tbl9.BKMethod == 1 then
-						v28.CreatureGrab:FireServer(v28.RightDetector, v26, v28.RightWeld)
+						v28.CreatureGrab:FireServer(nil, v26, v28.RightWeld)
 						task.wait()
 						v28.CreatureDrop:FireServer(v28.RightWeld)
 						task.wait()
@@ -29608,7 +29678,7 @@ end
 							tbl12.RNO(v26)
 						end
 					else
-						v28.CreatureGrab:FireServer(v28.RightDetector, v26, v28.RightWeld)
+						v28.CreatureGrab:FireServer(nil, v26, v28.RightWeld)
 						task.wait()
 						v28.CreatureRelease:FireServer(v28.RightWeld)
 						tbl12.Grab(v26)
@@ -29662,7 +29732,7 @@ end
 				while arg.Parent and v25.Parent and v26.Health ~= 0 and tbl8[arg2] and parent and tbl9.BlobMethod == "Lock" and tbl12.GetMagnitude(v23, v25) < 45 do
 					bodyPosition.Position = (v23.CFrame * CFrame.new(0, 0, -5)).Position
 					tbl12.ResetVelocity(v25)
-					creatureGrab:FireServer(leftDetector, v25, leftWeld)
+					creatureGrab:FireServer(nil, v25, leftWeld)
 					task.wait()
 					creatureRelease:FireServer(leftWeld)
 					task.wait()
@@ -31338,9 +31408,9 @@ end
 												v26.CFrame = v26.CFrame + Vector3.new(0, 15, 0)
 												tbl12.RNO(v26)
 												task.wait()
-												creatureGrab:FireServer(parent.RightDetector, v26, rightWeld)
+												creatureGrab:FireServer(nil, v26, rightWeld)
 												task.wait()
-												creatureGrab:FireServer(parent.RightDetector, v23, rightWeld)
+												creatureGrab:FireServer(nil, v23, rightWeld)
 											end
 										end
 									end
@@ -31351,7 +31421,7 @@ end
 										local rightWeld = parent and parent:FindFirstChild("RightDetector") and parent.RightDetector:FindFirstChild("RightWeld")
 
 										if creatureGrab and creatureRelease and rightWeld then
-											creatureGrab:FireServer(parent.RightDetector, v26, rightWeld)
+											creatureGrab:FireServer(nil, v26, rightWeld)
 											task.wait()
 											creatureRelease:FireServer(rightWeld)
 											task.wait()
@@ -31368,7 +31438,7 @@ end
 										local rightWeld = parent and parent:FindFirstChild("RightDetector") and parent.RightDetector:FindFirstChild("RightWeld")
 
 										if creatureGrab and creatureDrop and rightWeld then
-											creatureGrab:FireServer(parent.RightDetector, v26, rightWeld)
+											creatureGrab:FireServer(nil, v26, rightWeld)
 											task.wait()
 											creatureDrop:FireServer(rightWeld)
 										end
@@ -38090,30 +38160,12 @@ Escape Timer: %*]]
 						local other = joint.Part0 == part and joint.Part1 or joint.Part0
 
 						if joint.Enabled and other and other.Name == "StickyPart" and not other:IsDescendantOf(character) then
-							return true, other
+							return true
 						end
 					end
 				end
 
 				return false
-			end
-
-			local pendingExtra = {}
-
-			local function stickyOwner(stickyPart)
-				local node = stickyPart.Parent
-
-				while node and node ~= workspace do
-					local name = node.Name
-
-					if node.Parent == workspace and #name > 13 and name:sub(-13) == "SpawnedInToys" then
-						return Players:FindFirstChild(name:sub(1, #name - 13))
-					end
-
-					node = node.Parent
-				end
-
-				return nil
 			end
 
 			local function legitSeat(seatPart, character)
@@ -38137,7 +38189,6 @@ Escape Timer: %*]]
 			end
 
 			local motionState = {}
-			local lastPhysical = {}
 			local reasonStates = {}
 			local groundParams = RaycastParams.new()
 			groundParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -38149,21 +38200,6 @@ Escape Timer: %*]]
 				local partOwner = head and head:FindFirstChild("PartOwner")
 
 				return partOwner ~= nil and partOwner.Value ~= "" and partOwner.Value ~= player.Name
-			end
-
-			local function isRagdolled(humanoid)
-				local ragdolled = humanoid:FindFirstChild("Ragdolled")
-
-				if ragdolled and ragdolled.Value then
-					return true
-				end
-
-				local state = humanoid:GetState()
-
-				return humanoid.PlatformStand
-					or state == Enum.HumanoidStateType.Ragdoll
-					or state == Enum.HumanoidStateType.FallingDown
-					or state == Enum.HumanoidStateType.Physics
 			end
 
 			local function blobmanHolding(seatPart, character)
@@ -38221,31 +38257,8 @@ Escape Timer: %*]]
 					reasons["Has Gucci"] = true
 				end
 
-				local stickyTargets = { rootPart }
-
-				for _, childName in ipairs({ "RagdollTouchedHitbox", "FirePlayerPart" }) do
-					local child = rootPart:FindFirstChild(childName)
-
-					if child then
-						stickyTargets[#stickyTargets + 1] = child
-					end
-				end
-
-				for _, target in ipairs(stickyTargets) do
-					local stuck, stickyPart = weldedSticky(target, character)
-
-					if stuck then
-						local owner = stickyOwner(stickyPart)
-
-						if owner == player then
-							reasons["Shuriken in HRP"] = true
-						elseif owner and owner ~= localPlayer and not tbl12.IsScriptUser(owner) and not tbl7.ImmunePlayers[owner] then
-							pendingExtra[owner] = pendingExtra[owner] or {}
-							pendingExtra[owner]["Shuriken in " .. player.Name .. "'s HRP"] = true
-						end
-
-						break
-					end
+				if weldedSticky(rootPart, character) or weldedSticky(rootPart:FindFirstChild("RagdollTouchedHitbox"), character) or weldedSticky(rootPart:FindFirstChild("FirePlayerPart"), character) then
+					reasons["Shuriken in HRP"] = true
 				end
 
 				if seatPart and seatPart.Parent and blobmanHolding(seatPart, character) then
@@ -38263,18 +38276,6 @@ Escape Timer: %*]]
 				end
 
 				local held = beingHeld(character, player)
-				groundParams.FilterDescendantsInstances = { character }
-
-				local floorHit = workspace:Raycast(rootPart.Position, Vector3.new(0, -6, 0), groundParams)
-				local floorRoot = floorHit and floorHit.Instance.AssemblyRootPart
-				local onItem = floorRoot ~= nil and not floorRoot.Anchored
-				local physical = held or seatPart ~= nil or onItem or isRagdolled(humanoid)
-
-				if physical then
-					lastPhysical[player] = now3
-				end
-
-				local grace = physical or now3 - (lastPhysical[player] or -math.huge) < 3
 				local state = motionState[player]
 
 				if not state or state.Character ~= character then
@@ -38287,11 +38288,9 @@ Escape Timer: %*]]
 						local delta = rootPart.Position - state.Position
 						local horizontal = Vector3.new(delta.X, 0, delta.Z).Magnitude
 
-						if grace then
-							table.clear(state.Jumps)
-						elseif delta.Magnitude > 80 then
+						if delta.Magnitude > 80 then
 							table.insert(state.Jumps, now3)
-						elseif horizontal / dt > 45 then
+						elseif not seatPart and not held and horizontal / dt > 45 then
 							reasons["Speed"] = true
 						end
 
@@ -38310,7 +38309,7 @@ Escape Timer: %*]]
 					reasons["Teleporting"] = true
 				end
 
-				if not grace then
+				if not seatPart and not held then
 					groundParams.FilterDescendantsInstances = { character }
 					overlapParams.FilterDescendantsInstances = { character }
 
@@ -38405,29 +38404,10 @@ Escape Timer: %*]]
 
 			local function scanCheaters()
 				local now3 = os.clock()
-				local detectedByPlayer = {}
-
-				table.clear(pendingExtra)
 
 				for _, player in ipairs(Players:GetPlayers()) do
 					if player ~= localPlayer then
-						detectedByPlayer[player] = detectCheater(player)
-					end
-				end
-
-				for owner, extras in pairs(pendingExtra) do
-					local ownerDetected = detectedByPlayer[owner]
-
-					if ownerDetected then
-						for reason in pairs(extras) do
-							ownerDetected[reason] = true
-						end
-					end
-				end
-
-				for _, player in ipairs(Players:GetPlayers()) do
-					if player ~= localPlayer then
-						local detected = detectedByPlayer[player]
+						local detected = detectCheater(player)
 						local entry = cheaterEntries[player]
 						local character = player.Character
 						local state = reasonStates[player]
@@ -38489,7 +38469,6 @@ Escape Timer: %*]]
 					if player.Parent ~= Players then
 						reasonStates[player] = nil
 						motionState[player] = nil
-						lastPhysical[player] = nil
 					end
 				end
 			end
@@ -38511,7 +38490,7 @@ Escape Timer: %*]]
 
 			Toggles:AddToggle("CheaterESPT", {
 				Text = "Cheater ESP",
-				Tooltip = "Highlights players showing signs of cheating (ignores ragdolled, held, seated and item-riding players): Gucci, shuriken in root part, Blobman grabs, invisibility, speed, flying, noclip, underground, spinning/flinging, teleporting and toy spam",
+				Tooltip = "Highlights players showing signs of cheating: Gucci, shuriken in root part, Blobman grabs, invisibility, speed, flying, noclip, underground, spinning/flinging, teleporting and toy spam",
 				Default = false,
 				Callback = function(cheaterESP)
 					tbl8.CheaterESP = cheaterESP and not flag11
@@ -38529,8 +38508,6 @@ Escape Timer: %*]]
 						table.clear(cheaterCandidates)
 						table.clear(reasonStates)
 						table.clear(motionState)
-						table.clear(lastPhysical)
-						table.clear(pendingExtra)
 					end
 				end,
 			})
@@ -42257,6 +42234,7 @@ Rejoined: %rejoinedPlayer%, %listCount%]],
 		pcall(tbl12.SetBrokenPartHighlights, false)
 		pcall(tbl12.ClearFling)
 		pcall(tbl14.ClearGrabServer)
+		pcall(tbl14.StopHold)
 
 		pcall(function()
 			tbl12.DestroyToy(v17:FindFirstChild("RSCMicrowave"))
