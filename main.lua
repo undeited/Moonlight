@@ -1948,7 +1948,6 @@ function Library:SafeCallback(Func: (...any) -> ...any, ...: any)
     end
 
     local Result = table.pack(xpcall(Func, function(Error)
-        task.defer(error, debug.traceback(Error, 2))
         if Library.NotifyOnError and Library.Notify then
             Library:Notify(Error)
         end
@@ -35685,49 +35684,24 @@ Escape Timer: %*]]
 		local trollToken = 0
 		local trollConnections = {}
 
-		local trollLastGroundY = nil
 		local trollReturnCFrame = nil
+		local trollAnchorPlayer = nil
+		local trollLostSince = nil
+		local trollLastHold = nil
 
-		local trollGroundParams = RaycastParams.new()
-		trollGroundParams.FilterType = Enum.RaycastFilterType.Exclude
-		trollGroundParams.IgnoreWater = true
-		trollGroundParams.RespectCanCollide = true
-
-		local function getUndergroundPosition(root)
-			local ignore = {}
-
-			for _, player in ipairs(Players:GetPlayers()) do
-				if player.Character then
-					ignore[#ignore + 1] = player.Character
-				end
-			end
-
-			trollGroundParams.FilterDescendantsInstances = ignore
-
-			local position = root.Position
-			local result = workspace:Raycast(position, Vector3.new(0, -2000, 0), trollGroundParams)
-
-			if result then
-				trollLastGroundY = result.Position.Y
-			end
-
-			local groundY = trollLastGroundY or position.Y - 3
-
-			return Vector3.new(position.X, groundY - 15, position.Z)
-		end
+		local TROLL_DEPTH = 15
+		local TROLL_GRACE = 1.5
 
 		local function restoreTrollState()
 			local character, myRoot, humanoid = tbl12.Char()
 
-			if character and myRoot and humanoid and humanoid.Health > 0 then
-				if trollReturnCFrame then
-					tbl12.Teleport(myRoot, trollReturnCFrame)
-				elseif trollLastGroundY and myRoot.Position.Y < trollLastGroundY - 5 then
-					tbl12.Teleport(myRoot, Vector3.new(myRoot.Position.X, trollLastGroundY + 5, myRoot.Position.Z))
-				end
+			if character and myRoot and humanoid and humanoid.Health > 0 and trollReturnCFrame then
+				tbl12.Teleport(myRoot, trollReturnCFrame)
 			end
 
 			trollReturnCFrame = nil
+			trollLostSince = nil
+			trollLastHold = nil
 
 			if humanoid and humanoid.PlatformStand then
 				humanoid.PlatformStand = false
@@ -35741,7 +35715,7 @@ Escape Timer: %*]]
 		Troll:AddToggle("FlingAuraTroll", {
 			Text = "Fling Aura Troll",
 			Default = false,
-			Tooltip = "Noclips, freezes and stays 15 studs below the ground under the selected player, then returns you to where you were when the target leaves. Flings everyone within 15 studs while the target is touching the ground",
+			Tooltip = "Noclips, freezes and stays 15 studs directly below the selected player, then returns you to where you were when the target leaves. Flings everyone within 15 studs of the target while the target is touching the ground",
 			Callback = function(enabled)
 				tbl8.FlingAuraTroll = enabled
 				trollToken += 1
@@ -35755,23 +35729,50 @@ Escape Timer: %*]]
 
 				if not enabled then
 					pcall(restoreTrollState)
-					trollLastGroundY = nil
+					trollAnchorPlayer = nil
 					return
 				end
 
-				trollLastGroundY = nil
 				trollReturnCFrame = nil
+				trollAnchorPlayer = nil
+				trollLostSince = nil
+				trollLastHold = nil
+
+				local function validAnchor(player)
+					if not player or player.Parent ~= Players or not tbl7.SelectedPlayersTroll[player] then
+						return nil
+					end
+
+					if tbl12.IsProtectedPlayer(player) then
+						return nil
+					end
+
+					local _, root, humanoid = tbl12.Char(player)
+
+					if root and humanoid and humanoid.Health > 0 then
+						return root, humanoid.FloorMaterial ~= Enum.Material.Air
+					end
+
+					return nil
+				end
 
 				local function getAnchor()
-					for player in pairs(tbl7.SelectedPlayersTroll) do
-						if player.Parent == Players and not tbl12.IsProtectedPlayer(player) then
-							local _, root, humanoid = tbl12.Char(player)
+					local root, grounded = validAnchor(trollAnchorPlayer)
 
-							if root and humanoid and humanoid.Health > 0 then
-								return root, humanoid.FloorMaterial ~= Enum.Material.Air
-							end
+					if root then
+						return root, grounded
+					end
+
+					for player in pairs(tbl7.SelectedPlayersTroll) do
+						root, grounded = validAnchor(player)
+
+						if root then
+							trollAnchorPlayer = player
+							return root, grounded
 						end
 					end
+
+					return nil
 				end
 
 				local function holdUnder()
@@ -35783,6 +35784,8 @@ Escape Timer: %*]]
 
 					if not (myCharacter and myRoot and myHumanoid and myHumanoid.Health > 0) then
 						trollReturnCFrame = nil
+						trollLostSince = nil
+						trollLastHold = nil
 						return
 					end
 
@@ -35790,11 +35793,29 @@ Escape Timer: %*]]
 
 					if not anchorRoot then
 						if trollReturnCFrame then
-							pcall(restoreTrollState)
+							local now = os.clock()
+
+							if not trollLostSince then
+								trollLostSince = now
+							end
+
+							if now - trollLostSince >= TROLL_GRACE then
+								pcall(restoreTrollState)
+							elseif trollLastHold then
+								tbl12.ToggleCollisions(myCharacter, false, true)
+
+								if not myHumanoid.PlatformStand then
+									myHumanoid.PlatformStand = true
+								end
+
+								tbl12.Teleport(myRoot, trollLastHold)
+							end
 						end
 
 						return
 					end
+
+					trollLostSince = nil
 
 					if not trollReturnCFrame then
 						trollReturnCFrame = myRoot.CFrame
@@ -35806,7 +35827,8 @@ Escape Timer: %*]]
 						myHumanoid.PlatformStand = true
 					end
 
-					tbl12.Teleport(myRoot, getUndergroundPosition(anchorRoot))
+					trollLastHold = anchorRoot.Position - Vector3.new(0, TROLL_DEPTH, 0)
+					tbl12.Teleport(myRoot, trollLastHold)
 				end
 
 				table.insert(trollConnections, RunService.Stepped:Connect(holdUnder))
@@ -35824,10 +35846,12 @@ Escape Timer: %*]]
 								return
 							end
 
+							local center = anchorRoot.Position
+
 							for _, player in ipairs(tbl12.GetTargets(true)) do
 								local _, root, humanoid = tbl12.Char(player)
 
-								if root and humanoid and humanoid.Health > 0 and (root.Position - (myRoot.Position + Vector3.new(0, 15, 0))).Magnitude <= 15 and tbl12.SNO(root) then
+								if root and humanoid and humanoid.Health > 0 and (root.Position - center).Magnitude <= 15 and tbl12.SNO(root) then
 									root.AssemblyLinearVelocity = Vector3.new(math.random(-150, 150), 150, math.random(-150, 150))
 								end
 							end
@@ -38004,12 +38028,11 @@ Escape Timer: %*]]
 					end
 				end
 
-				for _, inventory in pairs(tbl7.Inventories) do
-					if inventory ~= ownFolder and not inventory.Name:match("SpawnedInToys$") then
-						for _, child in pairs(inventory:GetChildren()) do
-							if child:IsA("Model") then
-								legacy[#legacy + 1] = child
-							end
+				local _, ownPlotFolder = tbl12.GetInventory(localPlayer)
+				if ownPlotFolder then
+					for _, child in pairs(ownPlotFolder:GetChildren()) do
+						if child:IsA("Model") then
+							legacy[#legacy + 1] = child
 						end
 					end
 				end
