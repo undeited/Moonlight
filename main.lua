@@ -35715,7 +35715,7 @@ Escape Timer: %*]]
 		Troll:AddToggle("FlingAuraTroll", {
 			Text = "Fling Aura Troll",
 			Default = false,
-			Tooltip = "Noclips, freezes and stays 15 studs directly below the selected player, then returns you to where you were when the target leaves. Flings everyone within 15 studs of the target while the target is touching the ground",
+			Tooltip = "Noclips, freezes and only goes 15 studs directly below the selected player while they are standing on the ground. While they are airborne you stay hidden at your last underground position. Returns you to where you were when the target leaves. Flings everyone within 15 studs of the target while the target is touching the ground",
 			Callback = function(enabled)
 				tbl8.FlingAuraTroll = enabled
 				trollToken += 1
@@ -35789,7 +35789,7 @@ Escape Timer: %*]]
 						return
 					end
 
-					local anchorRoot = getAnchor()
+					local anchorRoot, anchorGrounded = getAnchor()
 
 					if not anchorRoot then
 						if trollReturnCFrame then
@@ -35816,6 +35816,20 @@ Escape Timer: %*]]
 					end
 
 					trollLostSince = nil
+
+					if not anchorGrounded then
+						if trollReturnCFrame and trollLastHold then
+							tbl12.ToggleCollisions(myCharacter, false, true)
+
+							if not myHumanoid.PlatformStand then
+								myHumanoid.PlatformStand = true
+							end
+
+							tbl12.Teleport(myRoot, trollLastHold)
+						end
+
+						return
+					end
 
 					if not trollReturnCFrame then
 						trollReturnCFrame = myRoot.CFrame
