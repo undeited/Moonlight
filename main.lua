@@ -38090,12 +38090,30 @@ Escape Timer: %*]]
 						local other = joint.Part0 == part and joint.Part1 or joint.Part0
 
 						if joint.Enabled and other and other.Name == "StickyPart" and not other:IsDescendantOf(character) then
-							return true
+							return true, other
 						end
 					end
 				end
 
 				return false
+			end
+
+			local pendingExtra = {}
+
+			local function stickyOwner(stickyPart)
+				local node = stickyPart.Parent
+
+				while node and node ~= workspace do
+					local name = node.Name
+
+					if node.Parent == workspace and #name > 13 and name:sub(-13) == "SpawnedInToys" then
+						return Players:FindFirstChild(name:sub(1, #name - 13))
+					end
+
+					node = node.Parent
+				end
+
+				return nil
 			end
 
 			local function legitSeat(seatPart, character)
@@ -38119,6 +38137,7 @@ Escape Timer: %*]]
 			end
 
 			local motionState = {}
+			local lastPhysical = {}
 			local reasonStates = {}
 			local groundParams = RaycastParams.new()
 			groundParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -38130,6 +38149,21 @@ Escape Timer: %*]]
 				local partOwner = head and head:FindFirstChild("PartOwner")
 
 				return partOwner ~= nil and partOwner.Value ~= "" and partOwner.Value ~= player.Name
+			end
+
+			local function isRagdolled(humanoid)
+				local ragdolled = humanoid:FindFirstChild("Ragdolled")
+
+				if ragdolled and ragdolled.Value then
+					return true
+				end
+
+				local state = humanoid:GetState()
+
+				return humanoid.PlatformStand
+					or state == Enum.HumanoidStateType.Ragdoll
+					or state == Enum.HumanoidStateType.FallingDown
+					or state == Enum.HumanoidStateType.Physics
 			end
 
 			local function blobmanHolding(seatPart, character)
@@ -38187,8 +38221,31 @@ Escape Timer: %*]]
 					reasons["Has Gucci"] = true
 				end
 
-				if weldedSticky(rootPart, character) or weldedSticky(rootPart:FindFirstChild("RagdollTouchedHitbox"), character) or weldedSticky(rootPart:FindFirstChild("FirePlayerPart"), character) then
-					reasons["Shuriken in HRP"] = true
+				local stickyTargets = { rootPart }
+
+				for _, childName in ipairs({ "RagdollTouchedHitbox", "FirePlayerPart" }) do
+					local child = rootPart:FindFirstChild(childName)
+
+					if child then
+						stickyTargets[#stickyTargets + 1] = child
+					end
+				end
+
+				for _, target in ipairs(stickyTargets) do
+					local stuck, stickyPart = weldedSticky(target, character)
+
+					if stuck then
+						local owner = stickyOwner(stickyPart)
+
+						if owner == player then
+							reasons["Shuriken in HRP"] = true
+						elseif owner and owner ~= localPlayer and not tbl12.IsScriptUser(owner) and not tbl7.ImmunePlayers[owner] then
+							pendingExtra[owner] = pendingExtra[owner] or {}
+							pendingExtra[owner]["Shuriken in " .. player.Name .. "'s HRP"] = true
+						end
+
+						break
+					end
 				end
 
 				if seatPart and seatPart.Parent and blobmanHolding(seatPart, character) then
@@ -38206,6 +38263,13 @@ Escape Timer: %*]]
 				end
 
 				local held = beingHeld(character, player)
+				local physical = held or seatPart ~= nil or isRagdolled(humanoid)
+
+				if physical then
+					lastPhysical[player] = now3
+				end
+
+				local grace = physical or now3 - (lastPhysical[player] or -math.huge) < 3
 				local state = motionState[player]
 
 				if not state or state.Character ~= character then
@@ -38218,9 +38282,11 @@ Escape Timer: %*]]
 						local delta = rootPart.Position - state.Position
 						local horizontal = Vector3.new(delta.X, 0, delta.Z).Magnitude
 
-						if delta.Magnitude > 80 then
+						if grace then
+							table.clear(state.Jumps)
+						elseif delta.Magnitude > 80 then
 							table.insert(state.Jumps, now3)
-						elseif not seatPart and not held and horizontal / dt > 45 then
+						elseif horizontal / dt > 45 then
 							reasons["Speed"] = true
 						end
 
@@ -38239,7 +38305,7 @@ Escape Timer: %*]]
 					reasons["Teleporting"] = true
 				end
 
-				if not seatPart and not held then
+				if not grace then
 					groundParams.FilterDescendantsInstances = { character }
 					overlapParams.FilterDescendantsInstances = { character }
 
@@ -38334,10 +38400,29 @@ Escape Timer: %*]]
 
 			local function scanCheaters()
 				local now3 = os.clock()
+				local detectedByPlayer = {}
+
+				table.clear(pendingExtra)
 
 				for _, player in ipairs(Players:GetPlayers()) do
 					if player ~= localPlayer then
-						local detected = detectCheater(player)
+						detectedByPlayer[player] = detectCheater(player)
+					end
+				end
+
+				for owner, extras in pairs(pendingExtra) do
+					local ownerDetected = detectedByPlayer[owner]
+
+					if ownerDetected then
+						for reason in pairs(extras) do
+							ownerDetected[reason] = true
+						end
+					end
+				end
+
+				for _, player in ipairs(Players:GetPlayers()) do
+					if player ~= localPlayer then
+						local detected = detectedByPlayer[player]
 						local entry = cheaterEntries[player]
 						local character = player.Character
 						local state = reasonStates[player]
@@ -38399,6 +38484,7 @@ Escape Timer: %*]]
 					if player.Parent ~= Players then
 						reasonStates[player] = nil
 						motionState[player] = nil
+						lastPhysical[player] = nil
 					end
 				end
 			end
@@ -38438,6 +38524,8 @@ Escape Timer: %*]]
 						table.clear(cheaterCandidates)
 						table.clear(reasonStates)
 						table.clear(motionState)
+						table.clear(lastPhysical)
+						table.clear(pendingExtra)
 					end
 				end,
 			})
