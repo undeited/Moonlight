@@ -29525,7 +29525,26 @@ end
 				tbl14.HoldEntry.Attempt = attempt
 			end
 
-			return true
+			local character = root.Parent
+
+			root.CFrame = components.RightDetector.CFrame
+			tbl12.ResetVelocity(root)
+			task.wait(0.12)
+
+			if not (humanoid.Health > 0 and character and character.Parent and root.Parent and tbl12.IsNetworkOwner(root)) then
+				tbl14.StopHold()
+				return false
+			end
+
+			local current = tbl14.GetBlobmanComponents()
+
+			if current and current.CreatureGrab and current.RightWeld then
+				current.CreatureGrab:FireServer(character, root, current.RightWeld)
+			end
+
+			task.wait(0.12)
+
+			return tbl14.HoldEntry ~= nil and tbl14.HoldEntry.Player == arg
 		end
 
 		tbl14.Kill = function(arg)
