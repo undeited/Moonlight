@@ -29404,6 +29404,7 @@ end
 
 		tbl14.HoldEntry = nil
 		tbl14.HoldConnection = nil
+		tbl14.GrabEpoch = 0
 
 		tbl14.StopHold = function()
 			if tbl14.HoldConnection then
@@ -29419,6 +29420,176 @@ end
 					if object.Parent then
 						object:Destroy()
 					end
+				end
+			end
+		end
+
+		tbl14.ClampToOpen = function(position)
+			local _, myRoot = tbl12.Char()
+
+			if not myRoot then
+				return position, false
+			end
+
+			local direction = position - myRoot.Position
+
+			if direction.Magnitude < 1 then
+				return position, false
+			end
+
+			local ignore = {}
+
+			for _, player in ipairs(Players:GetPlayers()) do
+				if player.Character then
+					ignore[#ignore + 1] = player.Character
+				end
+			end
+
+			if parent then
+				ignore[#ignore + 1] = parent
+			end
+
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.FilterDescendantsInstances = ignore
+			params.IgnoreWater = true
+			params.RespectCanCollide = true
+
+			for _ = 1, 4 do
+				local result = workspace:Raycast(myRoot.Position, direction, params)
+
+				if not result then
+					return position, false
+				end
+
+				if result.Instance.Anchored then
+					return result.Position - direction.Unit * 3, true
+				end
+
+				ignore[#ignore + 1] = result.Instance
+				params.FilterDescendantsInstances = ignore
+			end
+
+			return position, false
+		end
+
+		tbl14.FindSafeCFrame = function()
+			local _, myRoot = tbl12.Char()
+
+			if not myRoot then
+				return nil
+			end
+
+			local ignore = {}
+
+			for _, player in ipairs(Players:GetPlayers()) do
+				if player.Character then
+					ignore[#ignore + 1] = player.Character
+				end
+			end
+
+			if parent then
+				ignore[#ignore + 1] = parent
+			end
+
+			local params = OverlapParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.FilterDescendantsInstances = ignore
+			params.RespectCanCollide = true
+
+			local base = myRoot.CFrame
+			local offsets = {
+				Vector3.new(0, 6, -8),
+				Vector3.new(8, 6, 0),
+				Vector3.new(-8, 6, 0),
+				Vector3.new(0, 6, 8),
+				Vector3.new(0, 10, 0),
+				Vector3.new(0, 16, 0),
+			}
+
+			for _, offset in ipairs(offsets) do
+				local position = (base * CFrame.new(offset)).Position
+
+				if #workspace:GetPartBoundsInRadius(position, 4, params) == 0 then
+					return CFrame.new(position)
+				end
+			end
+
+			return CFrame.new(base.Position + Vector3.new(0, 20, 0))
+		end
+
+		tbl14.SafeDrop = function(player)
+			local character, root, humanoid = tbl12.Char(player)
+
+			if not (character and root and humanoid and humanoid.Health > 0) then
+				return false
+			end
+
+			if not tbl12.IsNetworkOwner(root) then
+				return false
+			end
+
+			local cframe = tbl14.FindSafeCFrame()
+
+			if cframe then
+				tbl12.Teleport(root, cframe)
+			end
+
+			for _, part in ipairs(character:GetDescendants()) do
+				if part:IsA("BasePart") then
+					if part.Anchored then
+						part.Anchored = false
+					end
+
+					tbl12.ResetVelocity(part)
+				end
+			end
+
+			return true
+		end
+
+		tbl14.Ungrab = function(player)
+			tbl14.StopHold()
+
+			local components = tbl14.GetBlobmanComponents()
+			local weld = components and components.RightWeld
+
+			if weld and weld.Parent then
+				local _, root = tbl12.Char(player)
+				local attachment = root and root:FindFirstChild("RootAttachment")
+
+				if weld.Attachment0 ~= nil and (not attachment or weld.Attachment0 == attachment) then
+					if components.CreatureDrop then
+						components.CreatureDrop:FireServer(weld)
+					end
+
+					task.wait()
+					weld.Attachment0 = nil
+					weld.Enabled = true
+				end
+			end
+
+			task.wait()
+			tbl14.SafeDrop(player)
+		end
+
+		tbl14.FixSelected = function()
+			tbl14.GrabEpoch += 1
+
+			local targets = {}
+			local entry = tbl14.HoldEntry
+
+			if entry and entry.Player then
+				targets[entry.Player] = true
+			end
+
+			for player in pairs(tbl7.SelectedPlayersBlob) do
+				targets[player] = true
+			end
+
+			for player in pairs(targets) do
+				if player.Parent == Players then
+					pcall(tbl14.Ungrab, player)
 				end
 			end
 		end
@@ -29447,7 +29618,9 @@ end
 				Orientation = alignOrientation,
 				Objects = { alignPosition, alignOrientation },
 				LostFrames = 0,
+				BlockedFrames = 0,
 				Attempt = 0,
+				Epoch = tbl14.GrabEpoch,
 			}
 
 			tbl14.HoldEntry = entry
@@ -29458,7 +29631,13 @@ end
 				local _, _, humanoid = tbl12.Char(player)
 
 				if flag11 or not hand or not humanoid or humanoid.Health <= 0 or not entry.Root.Parent or not alignPosition.Parent then
+					local dropPlayer = not flag11 and humanoid and humanoid.Health > 0 and entry.Root.Parent and entry.Player
 					tbl14.StopHold()
+
+					if dropPlayer then
+						task.spawn(tbl14.SafeDrop, dropPlayer)
+					end
+
 					return
 				end
 
@@ -29469,7 +29648,7 @@ end
 						local nextAttempt = entry.Attempt + 1
 						tbl14.StopHold()
 
-						if nextAttempt <= 3 then
+						if nextAttempt <= 3 and entry.Epoch == tbl14.GrabEpoch then
 							task.spawn(tbl14.GrabHold, player, nextAttempt)
 						end
 					end
@@ -29478,8 +29657,24 @@ end
 				end
 
 				entry.LostFrames = 0
-				alignPosition.Position = hand.Position
-				alignOrientation.CFrame = hand.CFrame
+
+				local holdPosition, blocked = tbl14.ClampToOpen(hand.Position)
+
+				if blocked then
+					entry.BlockedFrames += 1
+
+					if entry.BlockedFrames >= 45 then
+						local blockedPlayer = entry.Player
+						tbl14.StopHold()
+						task.spawn(tbl14.Ungrab, blockedPlayer)
+						return
+					end
+				else
+					entry.BlockedFrames = 0
+				end
+
+				alignPosition.Position = holdPosition
+				alignOrientation.CFrame = hand.CFrame.Rotation + holdPosition
 			end)
 
 			return true
@@ -29490,6 +29685,7 @@ end
 				attempt = 0
 			end
 
+			local epoch = tbl14.GrabEpoch
 			local components = tbl14.GetBlobmanComponents()
 
 			if not (components and components.RightWeld and components.RightDetector and components.CreatureGrab) then
@@ -29500,6 +29696,12 @@ end
 
 			if not (root and humanoid and humanoid.Health > 0) then
 				return
+			end
+
+			local _, handBlocked = tbl14.ClampToOpen(components.RightDetector.Position)
+
+			if handBlocked then
+				return false
 			end
 
 			local entry = tbl14.HoldEntry
@@ -29530,6 +29732,11 @@ end
 			tbl12.ResetVelocity(root)
 			task.wait(0.12)
 
+			if epoch ~= tbl14.GrabEpoch then
+				tbl14.StopHold()
+				return false
+			end
+
 			if not (humanoid.Health > 0 and character and character.Parent and root.Parent and tbl12.IsNetworkOwner(root)) then
 				tbl14.StopHold()
 				return false
@@ -29542,6 +29749,11 @@ end
 			end
 
 			task.wait(0.12)
+
+			if epoch ~= tbl14.GrabEpoch then
+				tbl14.Ungrab(arg)
+				return false
+			end
 
 			return tbl14.HoldEntry ~= nil and tbl14.HoldEntry.Player == arg
 		end
@@ -30761,60 +30973,6 @@ end
 			tbl16.Dropdown = v22
 			table.insert(tbl7.PlayerDropdowns, tbl16)
 
-			local function fn21(arg8)
-				if tbl12.IsProtectedPlayer(arg8) then
-					return fn18("This player has Moonlight immunity.")
-				end
-
-				if not flag13 then
-					v22:SetValue(arg8)
-					local v23 = fn18
-					local str5 = ("Selected %* in %*!"):format(arg8.Name, arg2)
-					v23(str5)
-					return
-				end
-
-				local tbl17 = {}
-
-				for k, v23 in pairs(v22.Value) do
-					if k ~= arg8 then
-						tbl17[k] = v23
-					end
-				end
-
-				if not v22.Value[arg8] then
-					tbl17[arg8] = true
-					local v23 = fn18
-					local str5 = ("Selected %* in %*!"):format(arg8.Name, arg2)
-					v23(str5)
-				else
-					local v23 = fn18
-					local str5 = ("Deselected %* in %*!"):format(arg8.Name, arg2)
-					v23(str5)
-				end
-
-				v22:SetValue(tbl17)
-			end
-
-			if flag12 then
-				arg:AddLabel("Add to List"):AddKeyPicker(arg2 .. "DropdownST", {
-					Text = "Add to List",
-					Mode = "Press",
-					NoUI = true,
-					Callback = function()
-						local target = mouse.Target
-						if not target or not target.Parent then
-							return
-						end
-						local v23 = Players:FindFirstChild(target.Parent.Name)
-						if not v23 then
-							return
-						end
-						fn21(v23)
-					end,
-				})
-			end
-
 			return v22
 		end
 
@@ -31011,6 +31169,9 @@ end
 					tbl10.LoopTokens[arg3] = (tbl10.LoopTokens[arg3] or 0) + 1
 					tbl10.Cancel(arg3)
 					if not arg8 then
+						if arg5 and not arg4 and tbl9.BlobMethod == "Grab" then
+							task.spawn(tbl14.FixSelected)
+						end
 						return
 					end
 					local v22 = tbl10.LoopTokens[arg3]
@@ -31025,9 +31186,6 @@ end
 								pcall(tbl14.KickServer)
 								task.wait()
 							elseif arg5 and arg4 and tbl9.BlobMethod == "Grab" then
-								pcall(tbl14.GrabServer, function()
-									return not flag11 and tbl8[arg3] and tbl10.LoopTokens[arg3] == v22
-								end)
 								task.wait()
 							else
 								if flag12 and not arg5 and arg4 and tbl7.TargetMethods.Kick and tbl9.KickServerMethod == "Circle + Lag" then
@@ -34491,25 +34649,6 @@ Escape Timer: %*]]
 			label.Position = UDim2.fromOffset(viewportSize.X * 0.5, viewportSize.Y * 0.8)
 		end
 
-		Watermark = lib:AddDraggableLabel("Moonlight", 79685990879972)
-		Watermark:SetVisible(false)
-
-		task.spawn(function()
-			while Watermark and Watermark.Label and Watermark.Label.Parent do
-				if flag11 then
-					return
-				end
-				local v22 = Watermark
-				local setText = v22.SetText
-				local v23 = v22
-				local floor = math.floor
-				local dataPing = Stats2.Network.ServerStatsItem["Data Ping"]
-				local getValue = dataPing.GetValue
-				setText(v23, ("Moonlight %s | %s fps | %s ms"):format("v2.9", math.floor(Stats2.Workspace.Heartbeat:GetValue()), floor(getValue(dataPing))))
-				task.wait(1)
-			end
-		end)
-
 		tbl15 = {
 			Home = v19:AddTab("<b>Home</b>", "house"),
 			Player = v19:AddTab("<b>Player</b>", "person-standing"),
@@ -34611,7 +34750,7 @@ Escape Timer: %*]]
 			local v23 = nil
 			local v24 = nil
 
-			while task.wait(0.1) and Watermark and Watermark.Label and Watermark.Label.Parent do
+			while task.wait(0.1) do
 				if flag11 then
 					return
 				end
@@ -34855,7 +34994,7 @@ Escape Timer: %*]]
 						tbl12.StopFly()
 					end
 				end,
-			}):AddKeyPicker("FlightKey", { Text = "Flight", Mode = "Toggle", NoUI = false, SyncToggleState = true })
+			})
 
 			Character:AddToggle("WalkspeedT", {
 				Text = "Walk Speed",
@@ -34872,7 +35011,7 @@ Escape Timer: %*]]
 						end
 					end
 				end,
-			}):AddKeyPicker("WSKey", { Text = "Walk Speed", Mode = "Toggle", NoUI = false, SyncToggleState = true })
+			})
 
 			Character:AddToggle("JumpPowerT", {
 				Text = "Jump Power",
@@ -34881,7 +35020,7 @@ Escape Timer: %*]]
 					tbl8.JumpPower = jumpPower
 					tbl12.WakeRuntimeGate("MovementPhysics")
 				end,
-			}):AddKeyPicker("JPKey", { Text = "Jump Power", Mode = "Toggle", NoUI = true, SyncToggleState = true })
+			})
 
 			Character:AddToggle("SpinT", {
 				Text = "Character Spin",
@@ -34914,7 +35053,7 @@ Escape Timer: %*]]
 						end
 					end)
 				end,
-			}):AddKeyPicker("CSKey", { Text = "Character Spin", Mode = "Toggle", NoUI = true, SyncToggleState = true })
+			})
 
 			Character:AddDivider()
 
@@ -34933,7 +35072,7 @@ Escape Timer: %*]]
 						end
 					end
 				end,
-			}):AddKeyPicker("NCKey", { Text = "Noclip", Mode = "Toggle", NoUI = false, SyncToggleState = true })
+			})
 
 			Character:AddToggle("InfJumpT", {
 				Text = "Inf Jump",
@@ -34941,7 +35080,7 @@ Escape Timer: %*]]
 				Callback = function(infJump)
 					tbl8.InfJump = infJump
 				end,
-			}):AddKeyPicker("IJKey", { Text = "Inf Jump", Mode = "Toggle", NoUI = true, SyncToggleState = true })
+			})
 
 			Character:AddToggle("JerkOffT", {
 				Text = "Jerk Off",
@@ -34981,7 +35120,7 @@ Escape Timer: %*]]
 
 					v26:Stop()
 				end,
-			}):AddKeyPicker("JerkOffK", { Text = "Jerk Off", Mode = "Toggle", NoUI = false, SyncToggleState = true })
+			})
 
 			Character:AddDivider()
 
@@ -34993,12 +35132,6 @@ Escape Timer: %*]]
 				Risky = true,
 				DisabledTooltip = "Your exploit does not support this feature",
 				Callback = tbl12.SetDesync,
-			}):AddKeyPicker("DesyncKey", {
-				Text = "Position Desync",
-				Default = nil,
-				Mode = "Toggle",
-				NoUI = false,
-				SyncToggleState = true,
 			})
 
 			Character:AddLabel("Only use this if you have >= 100 FPS!", true)
@@ -35091,7 +35224,7 @@ Escape Timer: %*]]
 						end
 					end)
 				end,
-			}):AddKeyPicker("SpectateKey", { Text = "Spectate Player", Mode = "Toggle", NoUI = true, SyncToggleState = true })
+			})
 
 			Players2:AddToggle("LoopTPToPlayer", {
 				Text = "Loop TP to Player",
@@ -35340,12 +35473,6 @@ Escape Timer: %*]]
 					tbl11.CreateGrabLine:FireServer()
 				end
 			end,
-		}):AddKeyPicker("LineLagKey", {
-			Text = "Line-Lag Server",
-			Default = nil,
-			Mode = "Toggle",
-			NoUI = false,
-			SyncToggleState = true,
 		})
 
 		Lines:AddSlider("LineLagSSlider", {
@@ -35416,13 +35543,6 @@ Escape Timer: %*]]
 					end
 				end)
 			end,
-		}):AddKeyPicker("PacketLagKey", {
-			Text = "Packet-Lag Server",
-			Default = nil,
-			Mode = "Toggle",
-			NoUI = false,
-			Risky = true,
-			SyncToggleState = true,
 		})
 
 		Packets:AddButton({
@@ -35437,7 +35557,7 @@ Escape Timer: %*]]
 				local n36 = #tbl9.PacketPrefix
 				packet:FireServer(tbl9.PacketPrefix .. string.rep("0", math.floor(tbl9.Packets * 1000000) - n36))
 			end,
-		}):AddKeyPicker("OnePacketKey", { Text = "Packet Once", Default = nil, Mode = "Press", NoUI = true })
+		})
 
 		Packets:AddDivider()
 
@@ -35963,12 +36083,6 @@ Escape Timer: %*]]
 			Callback = function(arg)
 				tbl12.SetGucciAntiGrab(arg)
 			end,
-		}):AddKeyPicker("GucciK", {
-			Text = "[Gucci] Anti Grab",
-			Default = nil,
-			Mode = "Toggle",
-			NoUI = false,
-			SyncToggleState = true,
 		})
 
 		Antis:AddToggle("AntiBlobman", {
@@ -35987,12 +36101,6 @@ Escape Timer: %*]]
 			Callback = function(arg)
 				tbl12.SetRuntimeToggle("AntiInputLag", arg)
 			end,
-		}):AddKeyPicker("AntiNetK", {
-			Text = "Anti Network Ownership",
-			Default = nil,
-			Mode = "Toggle",
-			NoUI = false,
-			SyncToggleState = true,
 		})
 
 		Antis:AddToggle("AntiExplosion", {
@@ -36212,7 +36320,7 @@ Escape Timer: %*]]
 					end)
 				end
 			end,
-		}):AddKeyPicker("AntiLagK", { Text = "Anti Lag", Default = nil, Mode = "Toggle", NoUI = false, SyncToggleState = true })
+		})
 
 		Antis:AddToggle("AutoAntiLag", {
 			Text = "Auto Anti Lag",
@@ -36850,12 +36958,6 @@ Escape Timer: %*]]
 					end
 				end)
 			end,
-		}):AddKeyPicker("ASBK", {
-			Text = "Auto Sit Blobman",
-			Default = nil,
-			Mode = "Toggle",
-			NoUI = false,
-			SyncToggleState = true,
 		})
 
 		Settings:AddToggle("FreezeBlob", { Text = "Freeze Blobman", Default = false, Callback = tbl14.SetFrozen })
@@ -37474,7 +37576,7 @@ Escape Timer: %*]]
 			Func = function()
 				tbl12.ClearAnchors()
 			end,
-		}):AddKeyPicker("ReleaseAll", { Text = "Release All", Mode = "Press", NoUI = true })
+		})
 	end
 
 	do
@@ -37599,7 +37701,7 @@ Escape Timer: %*]]
 
 		fn22()
 		v20:AddDivider()
-		v20:AddButton({ Text = "Add Object", Func = tbl12.AddObjectToGroup }):AddKeyPicker("GroupAddObject", { Text = "Add Object to Group", Mode = "Press", NoUI = true })
+		v20:AddButton({ Text = "Add Object", Func = tbl12.AddObjectToGroup })
 
 		v20:AddButton({
 			Text = "Remove Object",
@@ -37610,7 +37712,7 @@ Escape Timer: %*]]
 					tbl12.RemoveObjectFromGroup(v21)
 				end
 			end,
-		}):AddKeyPicker("GroupRemoveObject", { Text = "Remove Object from Group", Mode = "Press", NoUI = true })
+		})
 
 		v20:AddDivider()
 
@@ -37733,15 +37835,6 @@ Escape Timer: %*]]
 			stickyWeld.Enabled = v21
 			tbl11.StickyPartEvent:FireServer(stickyPart, v20, cframe)
 		end
-
-		Experimental:AddLabel("Decollide Part"):AddKeyPicker("DecollidePart", {
-			Text = "Decollide Part",
-			Mode = "Press",
-			NoUI = true,
-			Callback = function()
-				fn21()
-			end,
-		})
 
 		local v20 = nil
 
@@ -38824,12 +38917,6 @@ Escape Timer: %*]]
 					localPlayer.CameraMode = "LockFirstPerson"
 				end
 			end,
-		}):AddKeyPicker("ThirdPersonK", {
-			Text = "Third Person",
-			Default = "Three",
-			Mode = "Toggle",
-			NoUI = false,
-			SyncToggleState = true,
 		})
 
 		Camera:AddToggle("CameraNoclip", { Text = "Camera Noclip", Default = false, Callback = tbl12.SetCameraNoclip })
@@ -40131,8 +40218,6 @@ Escape Timer: %*]]
 	end
 
 	tbl12.AddKeybind = function(arg, arg2, arg3, arg4, arg5, arg6)
-		arg:AddLabel(arg3):AddKeyPicker(arg2, { Text = arg3, Default = arg4, NoUI = true, Mode = arg5, Callback = arg6 })
-
 		if arg5 == "Toggle" then
 			tbl7.ToggleStates[arg3] = false
 		end
@@ -40698,18 +40783,6 @@ Escape Timer: %*]]
 			end,
 		})
 
-		if not lib.IsMobile then
-			toggles.AimbotToggle:AddKeyPicker("AimbotKeybind", {
-				Text = "Aim Key",
-				Default = "X",
-				Mode = "Hold",
-				NoUI = false,
-				ChangedCallback = function(aimKey)
-					tbl7.AimSettings.AimKey = aimKey
-				end,
-			})
-		end
-
 		v20:AddDivider("Configuration")
 
 		v20:AddDropdown("TargetPartDD", {
@@ -40807,16 +40880,6 @@ Escape Timer: %*]]
 			end,
 		})
 
-		if not lib.IsMobile then
-			toggles.TriggerToggle:AddKeyPicker("TriggerKeybind", {
-				Text = "Triggerbot",
-				Default = nil,
-				Mode = "Toggle",
-				NoUI = false,
-				SyncToggleState = true,
-			})
-		end
-
 		Triggerbot:AddDivider("Configuration")
 
 		Triggerbot:AddSlider("TriggerDelay", {
@@ -40901,12 +40964,6 @@ Escape Timer: %*]]
 			Default = false,
 			Tooltip = "Uses the game's raycast when supported, with a hitbox fallback",
 			Callback = tbl12.SetSilentAim,
-		}):AddKeyPicker("SAIMKeybind", {
-			Text = "Silent Aim",
-			Default = nil,
-			Mode = "Toggle",
-			NoUI = false,
-			SyncToggleState = true,
 		})
 
 		v20:AddToggle("SilentAimIgnoreWhitelist", {
@@ -41302,38 +41359,6 @@ Escape Timer: %*]]
 
 	do
 		local Menu = tbl15.Settings:AddLeftGroupbox("Menu", "wrench")
-		Menu:AddLabel("Menu Keybind"):AddKeyPicker("menukey", { Text = "Menu Keybind", Mode = "Toggle", Default = "Q", NoUI = false })
-		lib.ToggleKeybind = options.menukey
-
-		Menu:AddToggle("WatermarkT", {
-			Default = false,
-			Text = "Watermark",
-			Callback = function(arg)
-				Watermark:SetVisible(arg)
-			end,
-		})
-
-		Menu:AddDivider("Keybind Menu")
-
-		Menu:AddToggle("KeybindMenuOpen", {
-			Default = false,
-			Text = "Open Keybind Menu",
-			Callback = function(visible)
-				lib.KeybindFrame.Visible = visible
-			end,
-		})
-
-		if not lib.IsMobile then
-			Menu:AddToggle("OnlyAssignedKeybinds", {
-				Default = false,
-				Text = "Only Show Assigned",
-				Callback = function(onlyAssignedKeybinds)
-					tbl8.OnlyAssignedKeybinds = onlyAssignedKeybinds
-					tbl12.UpdateKeybindMenu()
-				end,
-			})
-		end
-
 		Menu:AddDivider("Mouse")
 
 		Menu:AddToggle("UnlockMouse", {
@@ -41343,7 +41368,7 @@ Escape Timer: %*]]
 				textButton.Modal = modal
 				UserInputService.MouseIconEnabled = modal
 			end,
-		}):AddKeyPicker("unlockmousekey", { Text = "Unlock Mouse", Mode = "Toggle", NoUI = false, SyncToggleState = true })
+		})
 
 		Menu:AddToggle("MouseLockT", {
 			Default = false,
@@ -41379,23 +41404,6 @@ Escape Timer: %*]]
 				end
 
 				boundKeys.Value = value
-			end,
-		}):AddKeyPicker("MouseLockKey", {
-			Text = "Mouse-Lock Key",
-			Mode = "Toggle",
-			Default = "LeftAlt",
-			NoUI = true,
-			ChangedCallback = function(arg)
-				tbl9.ShiftLockKey = arg.Name
-
-				if toggles.MouseLockT and toggles.MouseLockT.Value then
-					local mouseLockController = localPlayer.PlayerScripts:FindFirstChild("PlayerModule") and localPlayer.PlayerScripts.PlayerModule:FindFirstChild("CameraModule") and localPlayer.PlayerScripts.PlayerModule.CameraModule:FindFirstChild("MouseLockController")
-					local boundKeys = mouseLockController and mouseLockController:FindFirstChild("BoundKeys")
-
-					if boundKeys then
-						boundKeys.Value = arg.Name
-					end
-				end
 			end,
 		})
 	end
@@ -41739,8 +41747,6 @@ Rejoined: %rejoinedPlayer%, %listCount%]],
 				Size = mainFrame and fn21(mainFrame.Size),
 				SidebarWidth = sidebarWidth,
 				SidebarScale = sidebarWidth / math.max(mainFrame.Size.X.Offset, 1),
-				WatermarkPosition = Watermark and Watermark.Label and fn21(Watermark.Label.Position),
-				WatermarkScreenPosition = Watermark and Watermark.Label and fn23(Watermark.Label),
 				MobileButtons = {},
 			}
 
@@ -41760,10 +41766,8 @@ Rejoined: %rejoinedPlayer%, %listCount%]],
 			local mainFrame = v19.MainFrame
 			local v20 = fn22(arg.Size)
 			local v21 = fn22(arg.Position)
-			local v22 = fn22(arg.WatermarkPosition)
 			fn25(mainFrame, v20)
 			fn24(mainFrame, arg.ScreenPosition, v21)
-			fn24(Watermark and Watermark.Label, arg.WatermarkScreenPosition, v22)
 			local n36
 
 			if typeof(arg.SidebarScale) == "number" then
@@ -42061,10 +42065,6 @@ Rejoined: %rejoinedPlayer%, %listCount%]],
 
 		pcall(tbl12.RestoreWaterSettings)
 		pcall(tbl12.RestoreSkySettings)
-
-		if Watermark and typeof(Watermark.Label) == "Instance" then
-			Watermark.Label:Destroy()
-		end
 
 		if typeof(screenGui) == "Instance" then
 			screenGui:Destroy()
