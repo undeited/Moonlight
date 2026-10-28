@@ -16493,7 +16493,6 @@ do
 							SmoothPCLD = true,
 							StickyESP = false,
 							BlackholeESP = false,
-							CheaterESP = false,
 							Shaders = false,
 							ChinaHat = false,
 							Zoom = false,
@@ -29429,15 +29428,15 @@ end
 			local entry = tbl14.HoldEntry
 
 			if entry and entry.Player == player and entry.Root.Parent and entry.Position.Parent then
-				return
+				return true
 			end
 
 			tbl14.StopHold()
 
 			local _, root = tbl12.Char(player)
 
-			if not root then
-				return
+			if not (root and tbl12.IsNetworkOwner(root)) then
+				return false
 			end
 
 			local alignPosition, alignOrientation = tbl12.CreateAlign(root, true)
@@ -29448,6 +29447,8 @@ end
 				Position = alignPosition,
 				Orientation = alignOrientation,
 				Objects = { alignPosition, alignOrientation },
+				LostFrames = 0,
+				Attempt = 0,
 			}
 
 			tbl14.HoldEntry = entry
@@ -29455,37 +29456,76 @@ end
 			tbl14.HoldConnection = RunService.Heartbeat:Connect(function()
 				local components = tbl14.GetBlobmanComponents()
 				local hand = components and components.RightDetector
+				local _, _, humanoid = tbl12.Char(player)
 
-				if flag11 or not hand or not entry.Root.Parent or not alignPosition.Parent then
+				if flag11 or not hand or not humanoid or humanoid.Health <= 0 or not entry.Root.Parent or not alignPosition.Parent then
 					tbl14.StopHold()
 					return
 				end
 
+				if not tbl12.IsNetworkOwner(entry.Root) then
+					entry.LostFrames += 1
+
+					if entry.LostFrames >= 15 then
+						local nextAttempt = entry.Attempt + 1
+						tbl14.StopHold()
+
+						if nextAttempt <= 3 then
+							task.spawn(tbl14.GrabHold, player, nextAttempt)
+						end
+					end
+
+					return
+				end
+
+				entry.LostFrames = 0
 				alignPosition.Position = hand.Position
 				alignOrientation.CFrame = hand.CFrame
 			end)
+
+			return true
 		end
 
-		tbl14.GrabHold = function(arg)
+		tbl14.GrabHold = function(arg, attempt)
+			if type(attempt) ~= "number" then
+				attempt = 0
+			end
+
 			local components = tbl14.GetBlobmanComponents()
 
-			if not (components and components.RightWeld) then
+			if not (components and components.RightWeld and components.RightDetector and components.CreatureGrab) then
 				return
 			end
 
-			components.RightWeld.Enabled = true
+			local _, root, humanoid = tbl12.Char(arg)
 
-			if components.RightOri then
-				components.RightOri.Enabled = true
+			if not (root and humanoid and humanoid.Health > 0) then
+				return
 			end
 
-			local held = tbl14.Grab(arg)
+			local entry = tbl14.HoldEntry
 
-			if held then
-				tbl14.StartHold(arg)
+			if entry and entry.Player == arg and entry.Root == root and entry.Root.Parent and entry.Position.Parent and tbl12.IsNetworkOwner(root) then
+				return true
 			end
 
-			return held
+			if not tbl12.IsNetworkOwner(root) and not tbl14.Release(arg) then
+				return false
+			end
+
+			if not tbl12.IsNetworkOwner(root) then
+				return false
+			end
+
+			if not tbl14.StartHold(arg) then
+				return false
+			end
+
+			if tbl14.HoldEntry then
+				tbl14.HoldEntry.Attempt = attempt
+			end
+
+			return true
 		end
 
 		tbl14.Kill = function(arg)
@@ -38136,382 +38176,6 @@ Escape Timer: %*]]
 				fn21("Blackhole", "NameOutlineColor", arg)
 			end,
 		})
-
-		do
-			local cheaterEntries = {}
-			local lastScan = 0
-
-			local cheaterCandidates = {}
-			local characterSeen = setmetatable({}, { __mode = "k" })
-
-			local function weldedSticky(part, character)
-				if typeof(part) ~= "Instance" or not part.Parent then
-					return false
-				end
-
-				local ok, joints = pcall(part.GetJoints, part)
-
-				if not ok then
-					return false
-				end
-
-				for _, joint in ipairs(joints) do
-					if joint:IsA("WeldConstraint") or joint:IsA("Weld") or joint:IsA("ManualWeld") then
-						local other = joint.Part0 == part and joint.Part1 or joint.Part0
-
-						if joint.Enabled and other and other.Name == "StickyPart" and not other:IsDescendantOf(character) then
-							return true
-						end
-					end
-				end
-
-				return false
-			end
-
-			local function legitSeat(seatPart, character)
-				local seatWeld = seatPart:FindFirstChild("SeatWeld")
-
-				if seatWeld and seatWeld.Enabled then
-					return true
-				end
-
-				for _, child in ipairs(seatPart:GetChildren()) do
-					if child:IsA("JointInstance") or child:IsA("WeldConstraint") then
-						local part0, part1 = child.Part0, child.Part1
-
-						if child.Enabled and ((part0 and part0:IsDescendantOf(character)) or (part1 and part1:IsDescendantOf(character))) then
-							return true
-						end
-					end
-				end
-
-				return false
-			end
-
-			local motionState = {}
-			local reasonStates = {}
-			local groundParams = RaycastParams.new()
-			groundParams.FilterType = Enum.RaycastFilterType.Exclude
-			local overlapParams = OverlapParams.new()
-			overlapParams.FilterType = Enum.RaycastFilterType.Exclude
-
-			local function beingHeld(character, player)
-				local head = character:FindFirstChild("Head")
-				local partOwner = head and head:FindFirstChild("PartOwner")
-
-				return partOwner ~= nil and partOwner.Value ~= "" and partOwner.Value ~= player.Name
-			end
-
-			local function blobmanHolding(seatPart, character)
-				local blobman = seatPart.Parent
-
-				if not blobman or blobman.Name ~= "CreatureBlobman" then
-					return false
-				end
-
-				for _, info in ipairs({ { "RightDetector", "RightWeld" }, { "LeftDetector", "LeftWeld" } }) do
-					local detector = blobman:FindFirstChild(info[1])
-					local weld = detector and detector:FindFirstChild(info[2])
-					local attachment = weld and weld.Attachment0
-
-					if attachment and attachment.Parent and not attachment:IsDescendantOf(character) then
-						local holder = attachment.Parent.Parent
-
-						if holder and Players:GetPlayerFromCharacter(holder) then
-							return true
-						end
-					end
-				end
-
-				return false
-			end
-
-			local function detectCheater(player)
-				local reasons = {}
-
-				if tbl12.IsScriptUser(player) or tbl7.ImmunePlayers[player] then
-					return reasons
-				end
-
-				local character, rootPart, humanoid = tbl12.Char(player)
-
-				if not character or not character.Parent or not rootPart or not humanoid or humanoid.Health <= 0 then
-					motionState[player] = nil
-					return reasons
-				end
-
-				local now3 = os.clock()
-
-				if not characterSeen[character] then
-					characterSeen[character] = now3
-				end
-
-				if now3 - characterSeen[character] < 3 then
-					motionState[player] = nil
-					return reasons
-				end
-
-				local seatPart = humanoid.SeatPart
-
-				if seatPart and seatPart.Parent and humanoid.Sit and not legitSeat(seatPart, character) then
-					reasons["Has Gucci"] = true
-				end
-
-				if weldedSticky(rootPart, character) or weldedSticky(rootPart:FindFirstChild("RagdollTouchedHitbox"), character) or weldedSticky(rootPart:FindFirstChild("FirePlayerPart"), character) then
-					reasons["Shuriken in HRP"] = true
-				end
-
-				if seatPart and seatPart.Parent and blobmanHolding(seatPart, character) then
-					reasons["Blobman Grab"] = true
-				end
-
-				if (rootPart.AssemblyRootPart or rootPart).Massless then
-					reasons["Invisible"] = true
-				end
-
-				local toyFolder = workspace:FindFirstChild(player.Name .. "SpawnedInToys")
-
-				if toyFolder and #toyFolder:GetChildren() > 17 then
-					reasons["Toy Spam"] = true
-				end
-
-				local held = beingHeld(character, player)
-				local state = motionState[player]
-
-				if not state or state.Character ~= character then
-					state = { Character = character, Position = rootPart.Position, Time = now3, Jumps = {} }
-					motionState[player] = state
-				else
-					local dt = now3 - state.Time
-
-					if dt >= 0.2 then
-						local delta = rootPart.Position - state.Position
-						local horizontal = Vector3.new(delta.X, 0, delta.Z).Magnitude
-
-						if delta.Magnitude > 80 then
-							table.insert(state.Jumps, now3)
-						elseif not seatPart and not held and horizontal / dt > 45 then
-							reasons["Speed"] = true
-						end
-
-						state.Position = rootPart.Position
-						state.Time = now3
-					end
-				end
-
-				for i = #state.Jumps, 1, -1 do
-					if now3 - state.Jumps[i] > 6 then
-						table.remove(state.Jumps, i)
-					end
-				end
-
-				if #state.Jumps >= 3 then
-					reasons["Teleporting"] = true
-				end
-
-				if not seatPart and not held then
-					groundParams.FilterDescendantsInstances = { character }
-					overlapParams.FilterDescendantsInstances = { character }
-
-					local origin = rootPart.Position
-					local velocity = rootPart.AssemblyLinearVelocity
-					local below = workspace:Raycast(origin, Vector3.new(0, -14, 0), groundParams)
-
-					if not below and math.abs(velocity.Y) < 4 then
-						reasons["Flying"] = true
-
-						local deepBelow = workspace:Raycast(origin, Vector3.new(0, -40, 0), groundParams)
-						local above = workspace:Raycast(origin, Vector3.new(0, 40, 0), groundParams)
-
-						if not deepBelow and above and above.Instance.CanCollide then
-							reasons["Underground"] = true
-						end
-					end
-
-					local inside = workspace:GetPartBoundsInBox(rootPart.CFrame, Vector3.new(1.5, 1.5, 1), overlapParams)
-
-					for _, part in ipairs(inside) do
-						if part.Anchored and part.CanCollide and part.Transparency < 1 then
-							reasons["Noclip"] = true
-							break
-						end
-					end
-
-					if rootPart.AssemblyAngularVelocity.Magnitude > 40 then
-						reasons["Spin/Fling"] = true
-					end
-				end
-
-				return reasons
-			end
-
-			local function clearCheaterEntry(player)
-				local entry = cheaterEntries[player]
-
-				if not entry then
-					return
-				end
-
-				cheaterEntries[player] = nil
-				entry.Highlight:Destroy()
-				entry.Billboard:Destroy()
-			end
-
-			local function cheaterText(player, reason)
-				return tbl12.FormatPlayer(player, true) .. "\n[" .. reason .. "]"
-			end
-
-			local function createCheaterEntry(player, character, reason)
-				local head = character:FindFirstChild("Head")
-
-				if not head then
-					return
-				end
-
-				local cheaterHighlight = Instance.new("Highlight")
-				cheaterHighlight.FillColor = Color3.fromRGB(255, 0, 0)
-				cheaterHighlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-				cheaterHighlight.FillTransparency = 0.5
-				cheaterHighlight.OutlineTransparency = 0
-				cheaterHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-				cheaterHighlight.Adornee = character
-				cheaterHighlight.Parent = character
-
-				local cheaterBillboard = Instance.new("BillboardGui")
-				cheaterBillboard.Adornee = head
-				cheaterBillboard.Size = UDim2.fromOffset(200, 40)
-				cheaterBillboard.StudsOffset = Vector3.new(0, 3, 0)
-				cheaterBillboard.AlwaysOnTop = true
-				cheaterBillboard.Parent = screenGui
-
-				local cheaterLabel = Instance.new("TextLabel")
-				cheaterLabel.BackgroundTransparency = 1
-				cheaterLabel.Size = UDim2.fromScale(1, 1)
-				cheaterLabel.Font = Enum.Font.GothamBold
-				cheaterLabel.TextSize = 14
-				cheaterLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
-				cheaterLabel.TextStrokeTransparency = 0
-				cheaterLabel.Text = cheaterText(player, reason)
-				cheaterLabel.Parent = cheaterBillboard
-
-				cheaterEntries[player] = {
-					Character = character,
-					Highlight = cheaterHighlight,
-					Billboard = cheaterBillboard,
-					Label = cheaterLabel,
-				}
-			end
-
-			local function scanCheaters()
-				local now3 = os.clock()
-
-				for _, player in ipairs(Players:GetPlayers()) do
-					if player ~= localPlayer then
-						local detected = detectCheater(player)
-						local entry = cheaterEntries[player]
-						local character = player.Character
-						local state = reasonStates[player]
-
-						if entry and (entry.Character ~= character or not entry.Character.Parent) then
-							clearCheaterEntry(player)
-							entry = nil
-							state = nil
-						end
-
-						if not state or state.Character ~= character then
-							state = { Character = character, Reasons = {} }
-							reasonStates[player] = state
-						end
-
-						for reason in pairs(detected) do
-							local tracked = state.Reasons[reason]
-
-							if not tracked then
-								state.Reasons[reason] = { Since = now3, LastSeen = now3 }
-							else
-								tracked.LastSeen = now3
-							end
-						end
-
-						local confirmed = {}
-
-						for reason, tracked in pairs(state.Reasons) do
-							if not detected[reason] and now3 - tracked.LastSeen >= 1 then
-								state.Reasons[reason] = nil
-							elseif now3 - tracked.Since >= 2 then
-								confirmed[#confirmed + 1] = reason
-							end
-						end
-
-						table.sort(confirmed)
-
-						if #confirmed > 0 and character then
-							local text = table.concat(confirmed, ", ")
-
-							if entry then
-								entry.Label.Text = cheaterText(player, text)
-							else
-								createCheaterEntry(player, character, text)
-							end
-						elseif entry then
-							clearCheaterEntry(player)
-						end
-					end
-				end
-
-				for player in pairs(cheaterEntries) do
-					if player.Parent ~= Players then
-						clearCheaterEntry(player)
-					end
-				end
-
-				for player in pairs(reasonStates) do
-					if player.Parent ~= Players then
-						reasonStates[player] = nil
-						motionState[player] = nil
-					end
-				end
-			end
-
-			local function stepCheaters()
-				if flag11 or not tbl8.CheaterESP then
-					return
-				end
-
-				local now3 = os.clock()
-
-				if now3 - lastScan < 0.25 then
-					return
-				end
-
-				lastScan = now3
-				scanCheaters()
-			end
-
-			Toggles:AddToggle("CheaterESPT", {
-				Text = "Cheater ESP",
-				Tooltip = "Highlights players showing signs of cheating: Gucci, shuriken in root part, Blobman grabs, invisibility, speed, flying, noclip, underground, spinning/flinging, teleporting and toy spam",
-				Default = false,
-				Callback = function(cheaterESP)
-					tbl8.CheaterESP = cheaterESP and not flag11
-
-					if tbl8.CheaterESP then
-						lastScan = 0
-						tbl12.SetRuntimeConnection("CheaterESP", RunService.Heartbeat, true, stepCheaters)
-					else
-						tbl12.SetRuntimeConnection("CheaterESP", RunService.Heartbeat, false, stepCheaters)
-
-						for player in pairs(cheaterEntries) do
-							clearCheaterEntry(player)
-						end
-
-						table.clear(cheaterCandidates)
-						table.clear(reasonStates)
-						table.clear(motionState)
-					end
-				end,
-			})
-		end
 
 		local Config = esp:AddTab("Config", "settings")
 
