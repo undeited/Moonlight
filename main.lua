@@ -16477,20 +16477,6 @@ do
 								flag11 = false
 								fallenPartsDestroyHeight = (0/0)
 
-								do
-									local v24 = string.gsub([[
-
-    _____________________ _________________    _______      _____    _______  _________ ___________
-    \______   \_   _____//   _____/\_____  \   \      \    /  _  \   \      \ \_   ___ \\_   _____/
-    |       _/|    __)_ \_____  \  /   |   \  /   |   \  /  /_\  \  /   |   \/    \  \/ |    __)_
-    |    |   \|        \/        \/    |    \/    |    \/    |    \/    |    \     \____|        \
-    |____|_  /_______  /_______  /\_______  /\____|__  /\____|__  /\____|__  /\______  /_______  /
-            \/        \/        \/         \/         \/         \/         \/        \/        \/   ver
-
-    ]], "ver", "v2.9")
-
-									
-								end
 							end
 
 							getgenv().MoonlightOriginalFallenHeight = workspace.FallenPartsDestroyHeight
@@ -36341,6 +36327,8 @@ Escape Timer: %*]]
 
 		local TROLL_DEPTH = 15
 		local TROLL_GRACE = 1.5
+		local TROLL_RADIUS = 15
+		local trollBusy = {}
 
 		local function restoreTrollState()
 			local character, myRoot, humanoid = tbl12.Char()
@@ -36400,7 +36388,18 @@ Escape Timer: %*]]
 					local _, root, humanoid = tbl12.Char(player)
 
 					if root and humanoid and humanoid.Health > 0 then
-						return root, humanoid.FloorMaterial ~= Enum.Material.Air
+						local map = game:GetService("Workspace"):FindFirstChild("Map")
+						local grounded = false
+
+						if map and (humanoid.FloorMaterial ~= Enum.Material.Air or math.abs(root.AssemblyLinearVelocity.Y) < 4) then
+							local params = RaycastParams.new()
+							params.FilterType = Enum.RaycastFilterType.Include
+							params.FilterDescendantsInstances = { map }
+							local result = game:GetService("Workspace"):Raycast(root.Position, Vector3.new(0, -5, 0), params)
+							grounded = result ~= nil and result.Instance:IsDescendantOf(map)
+						end
+
+						return root, grounded
 					end
 
 					return nil
@@ -36499,24 +36498,72 @@ Escape Timer: %*]]
 				table.insert(trollConnections, RunService.Heartbeat:Connect(holdUnder))
 				table.insert(trollConnections, RunService.RenderStepped:Connect(holdUnder))
 
+				table.clear(trollBusy)
+
+				local function flingTarget(player)
+					if trollBusy[player] then
+						return
+					end
+
+					trollBusy[player] = true
+
+					task.spawn(function()
+						pcall(function()
+							local _, root, humanoid = tbl12.Char(player)
+
+							if not (root and humanoid and humanoid.Health > 0) then
+								return
+							end
+
+							if not (tbl12.IsPartOwner(root) or tbl12.SNO(root)) then
+								return
+							end
+
+							if flag11 or not tbl8.FlingAuraTroll or trollToken ~= token then
+								return
+							end
+
+							local anchorRoot, grounded = getAnchor()
+
+							if not (anchorRoot and grounded and root.Parent) then
+								return
+							end
+
+							local offset = root.Position - anchorRoot.Position
+							local direction = Vector3.new(offset.X, 0, offset.Z)
+
+							if direction.Magnitude < 0.5 then
+								local angle = math.random() * math.pi * 2
+								direction = Vector3.new(math.cos(angle), 0, math.sin(angle))
+							end
+
+							root.AssemblyLinearVelocity = direction.Unit * 150 + Vector3.new(0, 150, 0)
+						end)
+
+						task.wait(0.1)
+						trollBusy[player] = nil
+					end)
+				end
+
 				task.spawn(function()
 					while not flag11 and tbl8.FlingAuraTroll and trollToken == token do
 						pcall(function()
 							local _, myRoot, myHumanoid = tbl12.Char()
-
 							local anchorRoot, grounded = getAnchor()
 
-							if not (myRoot and myHumanoid and myHumanoid.Health > 0 and anchorRoot and grounded) then
+							if not (myRoot and myHumanoid and myHumanoid.Health > 0 and anchorRoot and grounded and trollReturnCFrame) then
 								return
 							end
 
 							local center = anchorRoot.Position
 
 							for _, player in ipairs(tbl12.GetTargets(true)) do
-								local _, root, humanoid = tbl12.Char(player)
+								if not tbl7.SelectedPlayersTroll[player] then
+									local _, root, humanoid = tbl12.Char(player)
 
-								if root and humanoid and humanoid.Health > 0 and (root.Position - center).Magnitude <= 15 and tbl12.SNO(root) then
-									root.AssemblyLinearVelocity = Vector3.new(math.random(-150, 150), 150, math.random(-150, 150))
+									if root and humanoid and humanoid.Health > 0 and (root.Position - center).Magnitude <= TROLL_RADIUS and (root.Position - myRoot.Position).Magnitude <= 28 then
+										flingTarget(player)
+									end
 								end
 							end
 						end)
@@ -36530,6 +36577,7 @@ Escape Timer: %*]]
 						end
 
 						table.clear(trollConnections)
+						table.clear(trollBusy)
 						pcall(restoreTrollState)
 					end
 				end)
