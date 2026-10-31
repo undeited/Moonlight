@@ -16172,6 +16172,249 @@ return Lucide
 ]====]
 sources.Main = [====[
 local requireModule, reloadPath, registerCleanup = ...
+local compat = { Features = {}, Lookup = {}, Executor = "Unknown" }
+
+do
+	local function works(callback, ...)
+		if type(callback) ~= "function" then
+			return false
+		end
+
+		local ok, result = pcall(callback, ...)
+
+		return ok and result ~= nil
+	end
+
+	local globals = {
+		loadstring = loadstring,
+		getgenv = getgenv,
+		hookmetamethod = hookmetamethod,
+		getnamecallmethod = getnamecallmethod,
+		newcclosure = newcclosure,
+		checkcaller = checkcaller,
+		getrawmetatable = getrawmetatable,
+		getcallingscript = getcallingscript,
+		hookfunction = hookfunction or replaceclosure,
+		cloneref = cloneref or clonereference,
+		gethui = gethui or get_hidden_gui,
+		protectgui = protectgui or (syn and syn.protect_gui),
+		sethiddenproperty = sethiddenproperty,
+		setfflag = setfflag,
+		getfflag = getfflag,
+		getconnections = getconnections,
+		writefile = writefile,
+		readfile = readfile,
+		isfile = isfile,
+		isfolder = isfolder,
+		makefolder = makefolder,
+		listfiles = listfiles,
+		delfile = delfile,
+		getcustomasset = getcustomasset,
+		setclipboard = setclipboard,
+		queue_on_teleport = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport),
+		mouse1click = mouse1click,
+		mouse1press = mouse1press,
+		mouse1release = mouse1release,
+	}
+
+	local httpGetOk, httpGet = pcall(function()
+		return game.HttpGet
+	end)
+
+	globals.HttpGet = httpGetOk and httpGet or nil
+
+	local verify = {
+		newcclosure = function(callback)
+			return works(callback, function() end)
+		end,
+		cloneref = function(callback)
+			return works(callback, game)
+		end,
+		getrawmetatable = function(callback)
+			return works(callback, game)
+		end,
+		checkcaller = function(callback)
+			return works(callback)
+		end,
+	}
+
+	local function available(name)
+		local value = globals[name]
+
+		if type(value) ~= "function" then
+			return false
+		end
+
+		local check = verify[name]
+
+		return not check or check(value)
+	end
+
+	local definitions = {
+		{
+			Name = "Script Loader",
+			Needs = { "loadstring", "getgenv" },
+			Note = "Moonlight can't start without these",
+		},
+		{
+			Name = "Raycast Silent Aim",
+			Needs = { "hookmetamethod", "getnamecallmethod" },
+			Optional = { "newcclosure", "checkcaller", "getrawmetatable", "getcallingscript" },
+			Note = "The Silent Aim on the Misc tab still works through its hitbox method",
+		},
+		{
+			Name = "Position Desync",
+			Needs = { "sethiddenproperty", "setfflag", "getfflag" },
+		},
+		{
+			Name = "Anti-Idle",
+			Needs = { "getconnections" },
+			Note = "Roblox can kick you for being idle",
+		},
+		{
+			Name = "Config Saving",
+			Needs = { "writefile", "readfile", "isfile", "isfolder", "makefolder", "listfiles", "delfile" },
+			Note = "Configs and the server cache can't be saved",
+		},
+		{
+			Name = "Custom Assets",
+			Needs = { "writefile", "readfile", "isfile", "isfolder", "makefolder", "getcustomasset", "HttpGet" },
+			Note = "Icons and custom images or sounds can't be loaded",
+		},
+		{
+			Name = "Clipboard",
+			Needs = { "setclipboard" },
+		},
+		{
+			Name = "Queue On Teleport",
+			Needs = { "queue_on_teleport" },
+			Note = "Rejoin and server hop can't re-run the script",
+		},
+		{
+			Name = "Mouse Clicking",
+			Needs = { { "mouse1click", "mouse1press" } },
+		},
+		{
+			Name = "Camera Patch",
+			Needs = { "hookfunction" },
+			Minor = true,
+			Note = "Camera Noclip uses its fallback method",
+		},
+		{
+			Name = "GUI Protection",
+			Needs = { "gethui", "cloneref" },
+			Optional = { "protectgui" },
+			Minor = true,
+			Note = "The interface is easier for games to detect",
+		},
+	}
+
+	for _, definition in ipairs(definitions) do
+		local missing = {}
+		local limited = {}
+
+		for _, need in ipairs(definition.Needs) do
+			if type(need) == "table" then
+				local found = false
+
+				for _, alternative in ipairs(need) do
+					if available(alternative) then
+						found = true
+						break
+					end
+				end
+
+				if not found then
+					missing[#missing + 1] = table.concat(need, " / ")
+				end
+			elseif not available(need) then
+				missing[#missing + 1] = need
+			end
+		end
+
+		for _, name in ipairs(definition.Optional or {}) do
+			if not available(name) then
+				limited[#limited + 1] = name
+			end
+		end
+
+		definition.Missing = missing
+		definition.Limited = limited
+		definition.Supported = #missing == 0
+		compat.Features[#compat.Features + 1] = definition
+		compat.Lookup[definition.Name] = definition
+	end
+
+	local identify = identifyexecutor or getexecutorname
+
+	if type(identify) == "function" then
+		local ok, name, version = pcall(identify)
+
+		if ok and type(name) == "string" and name ~= "" then
+			compat.Executor = version and (name .. " " .. tostring(version)) or name
+		end
+	end
+
+	compat.IsSupported = function(name)
+		local feature = compat.Lookup[name]
+
+		return feature == nil or feature.Supported
+	end
+
+	compat.MissingText = function(name)
+		local feature = compat.Lookup[name]
+
+		return feature and table.concat(feature.Missing, ", ") or ""
+	end
+
+	compat.Describe = function(feature)
+		local text
+
+		if not feature.Supported then
+			text = feature.Name .. ": missing " .. table.concat(feature.Missing, ", ")
+
+			if feature.Note then
+				text = text .. ". " .. feature.Note
+			end
+		elseif #feature.Limited > 0 then
+			text = feature.Name .. ": limited, missing " .. table.concat(feature.Limited, ", ")
+		else
+			text = feature.Name .. ": supported"
+		end
+
+		return text
+	end
+
+	compat.Report = function()
+		local lines = { "Executor: " .. compat.Executor }
+
+		for _, feature in ipairs(compat.Features) do
+			lines[#lines + 1] = compat.Describe(feature)
+		end
+
+		return table.concat(lines, "\n")
+	end
+
+	compat.Warning = function()
+		local names = {}
+
+		for _, feature in ipairs(compat.Features) do
+			if not feature.Supported and not feature.Minor then
+				names[#names + 1] = feature.Name
+			end
+		end
+
+		if #names == 0 then
+			return nil
+		end
+
+		return "Your executor ("
+			.. compat.Executor
+			.. ") doesn't support everything Moonlight uses. Affected: "
+			.. table.concat(names, ", ")
+			.. ". See Settings > Executor Support for details."
+	end
+end
 local cloneref = cloneref or clonereference or function(value) return value end
 local gethui = gethui or get_hidden_gui or function() return game:GetService("CoreGui") end
 do
@@ -18847,11 +19090,14 @@ end
 							if mouse1click then
 								return mouse1click()
 							end
-							mouse1press()
-							task.wait()
 
-							if mouse1release then
-								mouse1release()
+							if mouse1press then
+								mouse1press()
+								task.wait()
+
+								if mouse1release then
+									mouse1release()
+								end
 							end
 
 							return
@@ -35130,7 +35376,9 @@ Escape Timer: %*]]
 				Tooltip = "Basically invisibility (makes your character stay still for other players, but not for the server)",
 				Disabled = not tbl12.DesyncSupported,
 				Risky = true,
-				DisabledTooltip = "Your exploit does not support this feature",
+				DisabledTooltip = "Your executor does not support this feature (missing: "
+					.. compat.MissingText("Position Desync")
+					.. ")",
 				Callback = tbl12.SetDesync,
 			})
 
@@ -35409,6 +35657,288 @@ Escape Timer: %*]]
 				end
 			end)
 		end
+	end
+
+	do
+		local silentAim = {
+			Enabled = false,
+			Target = nil,
+			Frame = 0,
+			Targets = {},
+			LastBuild = 0,
+			LastTune = 0,
+			Reach = 20,
+			AimDistance = 20,
+			RebuildFrames = 5,
+			MaxCandidates = 5,
+			PassChecked = false,
+		}
+
+		silentAim.Tune = function()
+			local now = os.clock()
+
+			if silentAim.LastTune > 0 and now - silentAim.LastTune < 2 then
+				return
+			end
+
+			silentAim.LastTune = now
+
+			local playerFactor = math.clamp((math.max(1, #Players:GetPlayers()) - 1) / 12, 0, 2)
+
+			silentAim.AimDistance = silentAim.Reach
+			silentAim.RebuildFrames = math.max(2, math.floor(5 - playerFactor * 2))
+			silentAim.MaxCandidates = math.max(3, math.floor(5 + playerFactor * 3))
+		end
+
+		silentAim.CheckPass = function()
+			if silentAim.PassChecked then
+				return
+			end
+
+			silentAim.PassChecked = true
+
+			task.spawn(function()
+				local ok, owns = pcall(function()
+					return game:GetService("MarketplaceService"):UserOwnsGamePassAsync(localPlayer.UserId, 20837132)
+				end)
+
+				silentAim.Reach = ok and owns and 30 or 20
+				silentAim.LastTune = 0
+				silentAim.Tune()
+			end)
+		end
+
+		silentAim.BuildTargets = function()
+			local targets = {}
+
+			for _, player in ipairs(Players:GetPlayers()) do
+				local character = player ~= localPlayer and player.Character
+				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+				if humanoid and humanoid.Health > 0 then
+					local parts = {}
+
+					for _, part in ipairs(character:GetDescendants()) do
+						if part:IsA("BasePart") and part.CanCollide then
+							parts[#parts + 1] = part
+						end
+					end
+
+					if #parts > 0 then
+						targets[#targets + 1] = { Parts = parts, Character = character }
+					end
+				end
+			end
+
+			silentAim.Targets = targets
+			silentAim.LastBuild = os.clock()
+		end
+
+		silentAim.HasLineOfSight = function(origin, targetPosition, targetCharacter)
+			local filter = {}
+
+			if localPlayer.Character then
+				filter[#filter + 1] = localPlayer.Character
+			end
+
+			if targetCharacter then
+				filter[#filter + 1] = targetCharacter
+			end
+
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.FilterDescendantsInstances = filter
+			params.IgnoreWater = true
+
+			local ok, result = pcall(workspace.Raycast, workspace, origin, targetPosition - origin, params)
+
+			return not ok or result == nil
+		end
+
+		silentAim.GetOrigin = function()
+			local character = localPlayer.Character
+			local part = character and (character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart"))
+
+			if part and part:IsA("BasePart") then
+				return part.Position
+			end
+
+			return nil
+		end
+
+		silentAim.Update = function()
+			if not silentAim.Enabled then
+				silentAim.Target = nil
+				return
+			end
+
+			silentAim.Frame += 1
+
+			if silentAim.Frame % silentAim.RebuildFrames ~= 0 then
+				return
+			end
+
+			silentAim.Tune()
+
+			if os.clock() - silentAim.LastBuild > 0.5 then
+				silentAim.BuildTargets()
+			end
+
+			local origin = silentAim.GetOrigin()
+			local camera = workspace.CurrentCamera
+			local mouse = UserInputService:GetMouseLocation()
+
+			silentAim.Target = nil
+
+			if not (origin and camera and mouse) then
+				return
+			end
+
+			local cameraPosition = camera.CFrame.Position
+			local cameraLook = camera.CFrame.LookVector
+			local candidates = {}
+
+			for _, entry in ipairs(silentAim.Targets) do
+				for _, part in ipairs(entry.Parts) do
+					if part.Parent then
+						local position = part.Position
+						local offset = position - cameraPosition
+
+						if offset.Magnitude <= silentAim.AimDistance and offset.Unit:Dot(cameraLook) > 0 then
+							local screen, onScreen = camera:WorldToViewportPoint(position)
+
+							if onScreen then
+								candidates[#candidates + 1] = {
+									Position = position,
+									Character = entry.Character,
+									Distance = (Vector2.new(screen.X, screen.Y) - mouse).Magnitude,
+								}
+							end
+						end
+					end
+				end
+			end
+
+			table.sort(candidates, function(a, b)
+				return a.Distance < b.Distance
+			end)
+
+			for index = 1, math.min(#candidates, silentAim.MaxCandidates) do
+				local candidate = candidates[index]
+
+				if silentAim.HasLineOfSight(origin, candidate.Position, candidate.Character) then
+					silentAim.Target = candidate.Position
+					return
+				end
+			end
+		end
+
+		silentAim.Hook = function()
+			if silentAim.Patch or type(hookmetamethod) ~= "function" or type(getnamecallmethod) ~= "function" then
+				return
+			end
+
+			local patch = {}
+
+			local function wrapper(self, ...)
+				if
+					silentAim.Enabled
+					and silentAim.Target
+					and not flag11
+					and self == workspace
+					and getnamecallmethod() == "Raycast"
+					and not (checkcaller and checkcaller())
+				then
+					local arguments = table.pack(...)
+
+					if typeof(arguments[1]) == "Vector3" then
+						arguments[2] = (silentAim.Target - arguments[1]).Unit * silentAim.AimDistance
+
+						return patch.Original(self, table.unpack(arguments, 1, arguments.n))
+					end
+				end
+
+				return patch.Original(self, ...)
+			end
+
+			if newcclosure then
+				wrapper = newcclosure(wrapper)
+			end
+
+			patch.Wrapper = wrapper
+
+			local ok, original = pcall(hookmetamethod, game, "__namecall", wrapper)
+
+			if ok and type(original) == "function" then
+				patch.Original = original
+				silentAim.Patch = patch
+			end
+		end
+
+		silentAim.Unhook = function()
+			local patch = silentAim.Patch
+
+			if patch and getrawmetatable then
+				local ok, result = pcall(getrawmetatable, game)
+
+				if ok and result.__namecall == patch.Wrapper then
+					pcall(hookmetamethod, game, "__namecall", patch.Original)
+				end
+			end
+
+			silentAim.Patch = nil
+		end
+
+		local SilentAimGroup = tbl15.Combat:AddRightGroupbox("Silent Aim", "crosshair")
+		local SilentAimToggle
+
+		SilentAimToggle = SilentAimGroup:AddToggle("CombatSilentAim", {
+			Text = "Silent Aim",
+			Default = false,
+			Tooltip = "Redirects the game's raycasts toward the nearest player in line of sight",
+		Disabled = not compat.IsSupported("Raycast Silent Aim"),
+		DisabledTooltip = "Your executor doesn't support: " .. compat.MissingText("Raycast Silent Aim"),
+			Callback = function(enabled)
+				enabled = enabled and not flag11
+				silentAim.Enabled = enabled
+				silentAim.Target = nil
+
+				if enabled then
+					silentAim.CheckPass()
+					silentAim.Hook()
+
+					if not silentAim.Patch then
+						silentAim.Enabled = false
+
+						lib:Notify({
+							Title = "Moonlight",
+							Description = "Silent Aim isn't supported by your executor",
+							Time = 3,
+						})
+
+						task.defer(function()
+							SilentAimToggle:SetValue(false)
+						end)
+
+						return
+					end
+
+					silentAim.Tune()
+					silentAim.BuildTargets()
+				end
+
+				tbl12.SetRuntimeConnection("CombatSilentAim", RunService.RenderStepped, enabled, function()
+					pcall(silentAim.Update)
+				end)
+			end,
+		})
+
+		lib:OnUnload(function()
+			silentAim.Enabled = false
+			silentAim.Target = nil
+			tbl12.SetRuntimeConnection("CombatSilentAim", RunService.RenderStepped, false)
+			pcall(silentAim.Unhook)
+		end)
 	end
 
 	do
@@ -41836,6 +42366,36 @@ Rejoined: %rejoinedPlayer%, %listCount%]],
 			end
 
 			return v20, v21
+		end
+	end
+
+	do
+		local Support = tbl15.Settings:AddRightGroupbox("Executor Support", "cpu")
+
+		Support:AddLabel("Executor: " .. compat.Executor, true)
+
+		for _, feature in ipairs(compat.Features) do
+			Support:AddLabel(compat.Describe(feature), true)
+		end
+
+		Support:AddButton({
+			Text = "Copy Report",
+			Tooltip = "Copies the executor support report to your clipboard",
+			Disabled = not compat.IsSupported("Clipboard"),
+			DisabledTooltip = "Your executor does not support setclipboard",
+			Func = function()
+				if pcall(setclipboard, compat.Report()) then
+					fn18("Executor report copied to your clipboard")
+				end
+			end,
+		})
+
+		local warning = compat.Warning()
+
+		if warning then
+			task.delay(2, function()
+				fn18(warning, "Executor Support", nil, 12, true)
+			end)
 		end
 	end
 
