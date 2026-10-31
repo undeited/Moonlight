@@ -3,66 +3,33 @@ name: CI
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  lint:
-    runs-on: ubuntu-24.04
+  stylua:
+    name: StyLua
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-
-      - name: Install stylua
-        uses: taiki-e/install-action@v2
+      - uses: actions/checkout@v6
+      - uses: JohnnyMorganz/stylua-action@v4
         with:
-          tool: stylua@2.6.0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: 2.3.1
+          args: --check .
 
-      - name: Install selene
-        uses: taiki-e/install-action@v2
-        with:
-          tool: selene@0.31.0
-
-      - name: Format check
-        run: stylua --check .
-
-      - name: Lint
-        run: selene .
-
-  package:
-    runs-on: ubuntu-24.04
-    needs: lint
+  selene:
+    name: Selene
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-
-      - name: Package
-        run: |
-          mkdir -p dist
-          zip -r "dist/moonlight-${GITHUB_SHA::7}.zip" . \
-            -x ".git/*" ".github/*" "dist/*" \
-               "selene.toml" "stylua.toml" "*.md"
-
-      - uses: actions/upload-artifact@v5
+      - uses: actions/checkout@v6
+      - uses: NTBBloodbath/selene-action@v1.0.0
         with:
-          name: moonlight
-          path: dist/*.zip
-
-  release:
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-24.04
-    needs: package
-    steps:
-      - uses: actions/download-artifact@v5
-        with:
-          name: moonlight
-          path: dist
-
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.zip
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: .

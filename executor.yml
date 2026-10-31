@@ -1,0 +1,74 @@
+---
+globals:
+  getgenv:
+    any: true
+  cloneref:
+    any: true
+  clonereference:
+    any: true
+  clonefunction:
+    any: true
+  copyfunction:
+    any: true
+  replaceclosure:
+    any: true
+  hookfunction:
+    any: true
+  hookmetamethod:
+    any: true
+  newcclosure:
+    any: true
+  checkcaller:
+    any: true
+  getnamecallmethod:
+    any: true
+  getrawmetatable:
+    any: true
+  getconnections:
+    any: true
+  getcallingscript:
+    any: true
+  sethiddenproperty:
+    any: true
+  setscriptable:
+    any: true
+  protectgui:
+    any: true
+  gethui:
+    any: true
+  get_hidden_gui:
+    any: true
+  syn:
+    any: true
+  setclipboard:
+    any: true
+  isfile:
+    any: true
+  isfolder:
+    any: true
+  makefolder:
+    any: true
+  readfile:
+    any: true
+  writefile:
+    any: true
+  listfiles:
+    any: true
+  delfile:
+    any: true
+  getcustomasset:
+    any: true
+  queue_on_teleport:
+    any: true
+  queueonteleport:
+    any: true
+  identifyexecutor:
+    any: true
+  getexecutorname:
+    any: true
+  mouse1click:
+    any: true
+  mouse1press:
+    any: true
+  mouse1release:
+    any: true

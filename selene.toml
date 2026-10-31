@@ -1,1 +1,5 @@
-std = "roblox"
+std = "roblox+executor"
+
+[lints]
+shadowing = "allow"
+unused_variable = "allow"
