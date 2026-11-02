@@ -36295,7 +36295,6 @@ Escape Timer: %*]]
 
 		local TROLL_DEPTH = 15
 		local TROLL_GRACE = 1.5
-		local TROLL_RADIUS = 15
 		local trollBusy = {}
 
 		local function restoreTrollState()
@@ -36321,7 +36320,7 @@ Escape Timer: %*]]
 		Troll:AddToggle("FlingAuraTroll", {
 			Text = "Fling Aura Troll",
 			Default = false,
-			Tooltip = "Noclips, freezes and only goes 15 studs directly below the selected player while they are standing on the ground. While they are airborne you stay hidden at your last underground position. Returns you to where you were when the target leaves. Flings everyone within 15 studs of the target while the target is touching the ground",
+			Tooltip = "Noclips, freezes and only goes 15 studs directly below the selected player while they are standing on the ground. While they are airborne you stay hidden at your last underground position. Returns you to where you were when the target leaves. Runs the same fling as the Combat tab Fling aura on everyone within the Aura Distance of you, while the target is touching the ground",
 			Callback = function(enabled)
 				tbl8.FlingAuraTroll = enabled
 				trollToken += 1
@@ -36497,18 +36496,16 @@ Escape Timer: %*]]
 								return
 							end
 
-							local offset = root.Position - anchorRoot.Position
-							local direction = Vector3.new(offset.X, 0, offset.Z)
+							local _, myRoot = tbl12.Char()
 
-							if direction.Magnitude < 0.5 then
-								local angle = math.random() * math.pi * 2
-								direction = Vector3.new(math.cos(angle), 0, math.sin(angle))
+							if not myRoot then
+								return
 							end
 
-							root.AssemblyLinearVelocity = direction.Unit * 150 + Vector3.new(0, 150, 0)
+							root.Velocity = myRoot.CFrame.LookVector * 100 + Vector3.new(0, 25, 0)
 						end)
 
-						task.wait(0.1)
+						task.wait(0.03)
 						trollBusy[player] = nil
 					end)
 				end
@@ -36523,14 +36520,19 @@ Escape Timer: %*]]
 								return
 							end
 
-							local center = anchorRoot.Position
+							local auraDistance = tbl9.AuraDistance
+							local maxDistanceSquared = auraDistance * auraDistance
 
 							for _, player in ipairs(tbl12.GetTargets(true)) do
 								if not tbl7.SelectedPlayersTroll[player] then
 									local _, root, humanoid = tbl12.Char(player)
 
-									if root and humanoid and humanoid.Health > 0 and (root.Position - center).Magnitude <= TROLL_RADIUS and (root.Position - myRoot.Position).Magnitude <= 28 then
-										flingTarget(player)
+									if root and humanoid and humanoid.Health > 0 then
+										local offset = myRoot.Position - root.Position
+
+										if offset:Dot(offset) <= maxDistanceSquared then
+											flingTarget(player)
+										end
 									end
 								end
 							end
