@@ -16399,6 +16399,9 @@ do
 end
 local cloneref = cloneref or clonereference or function(value) return value end
 local gethui = gethui or get_hidden_gui or function() return game:GetService("CoreGui") end
+if game.PlaceId == 142823291 then
+	return requireModule("MM2").Start(reloadPath, registerCleanup, compat)
+end
 do
 	local StarterGui, fn17, flag11, lib, lib2, lib3, options, toggles, Players, Lighting
 	local UserInputService, ReplicatedStorage, RunService, PhysicsService, HttpService, terrain, map, alwaysHereTweenedObjects, localPlayer, currentCamera
@@ -42092,6 +42095,873 @@ Rejoined: %rejoinedPlayer%, %listCount%]],
 	return {}
 end
 ]====]
+sources.MM2 = [====[
+local requireModule = ...
+
+local MM2 = {}
+
+MM2.PlaceId = 142823291
+
+function MM2.Start(reloadPath, registerCleanup, compat)
+	repeat
+		task.wait()
+	until game:IsLoaded()
+
+	local env = getgenv()
+
+	if env.MoonlightRunning then
+		return nil
+	end
+
+	env.MoonlightRunning = true
+	env.LoadTime = tick()
+
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+	local UserInputService = game:GetService("UserInputService")
+	local Lighting = game:GetService("Lighting")
+	local TeleportService = game:GetService("TeleportService")
+	local HttpService = game:GetService("HttpService")
+	local VirtualUser = game:GetService("VirtualUser")
+	local Workspace = game:GetService("Workspace")
+
+	local LocalPlayer = Players.LocalPlayer
+	local startedAt = tick()
+	local state = { Running = true, Farming = false, AppliedMovement = false, AppliedFov = false }
+	local connections = {}
+	local esp = {}
+	local lighting = {}
+	local lib = nil
+	local espFolder = nil
+	local gunEsp = nil
+
+	registerCleanup(function()
+		state.Running = false
+
+		if lib then
+			pcall(lib.Unload, lib)
+		end
+
+		env.MoonlightRunning = false
+	end)
+
+	lib = requireModule("Library")
+
+	local themeManager = requireModule("ThemeManager")
+	local saveManager = requireModule("SaveManager")
+
+	local function connect(signal, callback)
+		local connection = signal:Connect(callback)
+		connections[#connections + 1] = connection
+
+		return connection
+	end
+
+	local function toggleOn(name)
+		local toggle = lib.Toggles[name]
+
+		return toggle ~= nil and toggle.Value == true
+	end
+
+	local function optionValue(name, fallback)
+		local option = lib.Options[name]
+
+		if option == nil or option.Value == nil then
+			return fallback
+		end
+
+		return option.Value
+	end
+
+	local function notify(text)
+		if state.Running then
+			lib:Notify({ Title = "Moonlight", Description = text, Time = 4 })
+		end
+	end
+
+	local function getCharacter()
+		local character = LocalPlayer.Character
+
+		if not character then
+			return nil, nil, nil
+		end
+
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local root = character:FindFirstChild("HumanoidRootPart")
+
+		if not humanoid or not root or humanoid.Health <= 0 then
+			return nil, nil, nil
+		end
+
+		return character, humanoid, root
+	end
+
+	local function holdsTool(player, toolName)
+		local character = player.Character
+		local backpack = player:FindFirstChildOfClass("Backpack")
+
+		if character and character:FindFirstChild(toolName) then
+			return true
+		end
+
+		return backpack ~= nil and backpack:FindFirstChild(toolName) ~= nil
+	end
+
+	local function getRole(player)
+		if holdsTool(player, "Knife") then
+			return "Murderer"
+		end
+
+		if holdsTool(player, "Gun") then
+			return "Sheriff"
+		end
+
+		return "Innocent"
+	end
+
+	local function getHolder()
+		local parent = nil
+
+		pcall(function()
+			parent = gethui and gethui() or nil
+		end)
+
+		return parent or game:GetService("CoreGui")
+	end
+
+	espFolder = Instance.new("Folder")
+	espFolder.Name = "MoonlightMM2"
+	espFolder.Parent = getHolder()
+
+	local function createHighlight()
+		local highlight = Instance.new("Highlight")
+		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		highlight.FillTransparency = 0.5
+		highlight.OutlineTransparency = 0
+		highlight.Enabled = false
+		highlight.Parent = espFolder
+
+		return highlight
+	end
+
+	local function createBillboard()
+		local billboard = Instance.new("BillboardGui")
+		billboard.AlwaysOnTop = true
+		billboard.Size = UDim2.fromOffset(200, 36)
+		billboard.StudsOffset = Vector3.new(0, 3, 0)
+		billboard.Enabled = false
+		billboard.Parent = espFolder
+
+		local label = Instance.new("TextLabel")
+		label.BackgroundTransparency = 1
+		label.Size = UDim2.fromScale(1, 1)
+		label.Font = Enum.Font.GothamBold
+		label.TextSize = 14
+		label.TextStrokeTransparency = 0.4
+		label.TextColor3 = Color3.new(1, 1, 1)
+		label.Parent = billboard
+
+		return billboard, label
+	end
+
+	local function getEntry(player)
+		local entry = esp[player]
+
+		if entry then
+			return entry
+		end
+
+		local billboard, label = createBillboard()
+
+		entry = { Highlight = createHighlight(), Billboard = billboard, Label = label }
+		esp[player] = entry
+
+		return entry
+	end
+
+	local function removeEntry(player)
+		local entry = esp[player]
+
+		if not entry then
+			return
+		end
+
+		entry.Highlight:Destroy()
+		entry.Billboard:Destroy()
+		esp[player] = nil
+	end
+
+	local function hideEntry(entry)
+		entry.Highlight.Enabled = false
+		entry.Highlight.Adornee = nil
+		entry.Billboard.Enabled = false
+		entry.Billboard.Adornee = nil
+	end
+
+	local roleSettings = {
+		Murderer = { Toggle = "ShowMurderer", Color = "MurdererColor", Default = Color3.fromRGB(255, 60, 60) },
+		Sheriff = { Toggle = "ShowSheriff", Color = "SheriffColor", Default = Color3.fromRGB(70, 130, 255) },
+		Innocent = { Toggle = "ShowInnocent", Color = "InnocentColor", Default = Color3.fromRGB(90, 220, 120) },
+	}
+
+	local function updateEsp()
+		local enabled = toggleOn("PlayerESP")
+		local _, _, localRoot = getCharacter()
+
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer then
+				local entry = getEntry(player)
+				local character = player.Character
+				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+				local head = character and character:FindFirstChild("Head")
+				local role = getRole(player)
+				local settings = roleSettings[role]
+
+				if enabled and humanoid and head and humanoid.Health > 0 and toggleOn(settings.Toggle) then
+					local color = optionValue(settings.Color, settings.Default)
+
+					entry.Highlight.Adornee = character
+					entry.Highlight.FillColor = color
+					entry.Highlight.OutlineColor = color
+					entry.Highlight.Enabled = toggleOn("HighlightPlayers")
+
+					local text = player.DisplayName .. " [" .. role .. "]"
+
+					if localRoot and toggleOn("ShowDistance") then
+						text = text .. " " .. math.floor((head.Position - localRoot.Position).Magnitude) .. "m"
+					end
+
+					entry.Billboard.Adornee = head
+					entry.Billboard.Enabled = toggleOn("ShowNames")
+					entry.Label.Text = text
+					entry.Label.TextColor3 = color
+				else
+					hideEntry(entry)
+				end
+			end
+		end
+
+		if gunEsp then
+			local drop = state.GunDrop
+
+			if enabled and toggleOn("GunESP") and drop and drop.Parent then
+				gunEsp.Highlight.Adornee = drop
+				gunEsp.Highlight.FillColor = Color3.fromRGB(255, 220, 60)
+				gunEsp.Highlight.OutlineColor = Color3.fromRGB(255, 220, 60)
+				gunEsp.Highlight.Enabled = true
+				gunEsp.Billboard.Adornee = drop
+				gunEsp.Billboard.Enabled = true
+				gunEsp.Label.Text = "Dropped Gun"
+				gunEsp.Label.TextColor3 = Color3.fromRGB(255, 220, 60)
+			else
+				hideEntry(gunEsp)
+			end
+		end
+	end
+
+	local gunBillboard, gunLabel = createBillboard()
+	gunEsp = { Highlight = createHighlight(), Billboard = gunBillboard, Label = gunLabel }
+
+	local function trackGunDrop(instance)
+		if instance.Name == "GunDrop" and instance:IsA("BasePart") then
+			state.GunDrop = instance
+
+			if toggleOn("NotifyGunDrop") then
+				notify("The sheriff dropped their gun")
+			end
+		end
+	end
+
+	state.GunDrop = Workspace:FindFirstChild("GunDrop", true)
+
+	connect(Workspace.DescendantAdded, trackGunDrop)
+	connect(Workspace.DescendantRemoving, function(instance)
+		if instance == state.GunDrop then
+			state.GunDrop = nil
+		end
+	end)
+
+	connect(Players.PlayerRemoving, removeEntry)
+
+	local function getCoinContainer()
+		local cached = state.CoinContainer
+
+		if cached and cached.Parent then
+			return cached
+		end
+
+		for _, child in ipairs(Workspace:GetChildren()) do
+			if child:IsA("Model") then
+				local container = child:FindFirstChild("CoinContainer")
+
+				if container then
+					state.CoinContainer = container
+
+					return container
+				end
+			end
+		end
+
+		state.CoinContainer = nil
+
+		return nil
+	end
+
+	local function getNearestCoin(position)
+		local container = getCoinContainer()
+
+		if not container then
+			return nil
+		end
+
+		local nearest = nil
+		local best = math.huge
+
+		for _, coin in ipairs(container:GetChildren()) do
+			if coin:IsA("BasePart") and coin.Name == "Coin_Server" then
+				local distance = (coin.Position - position).Magnitude
+
+				if distance < best then
+					best = distance
+					nearest = coin
+				end
+			end
+		end
+
+		return nearest
+	end
+
+	local function touch(root, part)
+		local fire = getgenv().firetouchinterest
+
+		if type(fire) ~= "function" then
+			return
+		end
+
+		pcall(fire, root, part, 0)
+		task.wait()
+		pcall(fire, root, part, 1)
+	end
+
+	local function moveTo(root, position, speed)
+		local startedMoving = tick()
+
+		while state.Running and toggleOn("AutoCollectCoins") and root.Parent do
+			local delta = position - root.Position
+			local distance = delta.Magnitude
+
+			if distance < 2 or tick() - startedMoving > 15 then
+				return true
+			end
+
+			local dt = RunService.Heartbeat:Wait()
+			local step = math.min(distance, speed * dt)
+
+			root.CFrame = root.CFrame + delta.Unit * step
+			root.AssemblyLinearVelocity = Vector3.zero
+		end
+
+		return false
+	end
+
+	task.spawn(function()
+		while state.Running do
+			task.wait(0.1)
+
+			if toggleOn("AutoCollectCoins") then
+				local _, _, root = getCharacter()
+
+				if root then
+					local coin = getNearestCoin(root.Position)
+
+					if coin and coin.Parent then
+						state.Farming = true
+
+						local speed = optionValue("FarmSpeed", 40)
+
+						if moveTo(root, coin.Position, speed) and coin.Parent then
+							touch(root, coin)
+							task.wait(optionValue("FarmDelay", 0.1))
+						end
+					else
+						state.Farming = false
+					end
+				else
+					state.Farming = false
+				end
+			else
+				state.Farming = false
+			end
+		end
+	end)
+
+	local function grabGun()
+		local drop = state.GunDrop
+		local _, _, root = getCharacter()
+
+		if not drop or not drop.Parent then
+			notify("There is no dropped gun right now")
+
+			return
+		end
+
+		if not root then
+			return
+		end
+
+		local origin = root.CFrame
+
+		root.CFrame = drop.CFrame
+		task.wait(0.15)
+		touch(root, drop)
+		task.wait(0.15)
+
+		if root.Parent then
+			root.CFrame = origin
+		end
+	end
+
+	local function rememberLighting()
+		lighting.Brightness = Lighting.Brightness
+		lighting.ClockTime = Lighting.ClockTime
+		lighting.FogEnd = Lighting.FogEnd
+		lighting.GlobalShadows = Lighting.GlobalShadows
+		lighting.Ambient = Lighting.Ambient
+		lighting.OutdoorAmbient = Lighting.OutdoorAmbient
+	end
+
+	local function restoreLighting()
+		for property, value in pairs(lighting) do
+			pcall(function()
+				Lighting[property] = value
+			end)
+		end
+
+		state.AppliedLighting = false
+	end
+
+	local function applyFullbright()
+		if not state.AppliedLighting then
+			rememberLighting()
+			state.AppliedLighting = true
+		end
+
+		Lighting.Brightness = 2
+		Lighting.ClockTime = 14
+		Lighting.FogEnd = 100000
+		Lighting.GlobalShadows = false
+		Lighting.Ambient = Color3.fromRGB(178, 178, 178)
+		Lighting.OutdoorAmbient = Color3.fromRGB(178, 178, 178)
+	end
+
+	connect(RunService.Heartbeat, function()
+		local _, humanoid = getCharacter()
+
+		if humanoid then
+			if toggleOn("WalkSpeedEnabled") then
+				humanoid.WalkSpeed = optionValue("WalkSpeedValue", 16)
+				state.AppliedMovement = true
+			elseif state.AppliedMovement then
+				humanoid.WalkSpeed = 16
+				state.AppliedMovement = false
+			end
+
+			if toggleOn("JumpPowerEnabled") then
+				humanoid.UseJumpPower = true
+				humanoid.JumpPower = optionValue("JumpPowerValue", 50)
+				state.AppliedJump = true
+			elseif state.AppliedJump then
+				humanoid.JumpPower = 50
+				state.AppliedJump = false
+			end
+		end
+
+		if toggleOn("Fullbright") then
+			applyFullbright()
+		elseif state.AppliedLighting then
+			restoreLighting()
+		end
+	end)
+
+	connect(RunService.RenderStepped, function()
+		local camera = Workspace.CurrentCamera
+
+		if not camera then
+			return
+		end
+
+		if toggleOn("FovEnabled") then
+			camera.FieldOfView = optionValue("FovValue", 70)
+			state.AppliedFov = true
+		elseif state.AppliedFov then
+			camera.FieldOfView = 70
+			state.AppliedFov = false
+		end
+	end)
+
+	connect(RunService.Stepped, function()
+		if not toggleOn("Noclip") and not state.Farming then
+			return
+		end
+
+		local character = LocalPlayer.Character
+
+		if not character then
+			return
+		end
+
+		for _, part in ipairs(character:GetDescendants()) do
+			if part:IsA("BasePart") and part.CanCollide then
+				part.CanCollide = false
+			end
+		end
+	end)
+
+	connect(UserInputService.JumpRequest, function()
+		if not toggleOn("InfiniteJump") then
+			return
+		end
+
+		local _, humanoid = getCharacter()
+
+		if humanoid then
+			humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+		end
+	end)
+
+	connect(LocalPlayer.Idled, function()
+		if toggleOn("AntiAfk") then
+			pcall(function()
+				VirtualUser:CaptureController()
+				VirtualUser:ClickButton2(Vector2.new())
+			end)
+		end
+	end)
+
+	local function queueReload()
+		if type(queue_on_teleport) ~= "function" or not reloadPath or not toggleOn("ReloadOnTeleport") then
+			return
+		end
+
+		pcall(queue_on_teleport, ("loadstring(readfile(%q))()"):format(reloadPath))
+	end
+
+	local function rejoin()
+		queueReload()
+		TeleportService:Teleport(game.PlaceId, LocalPlayer)
+	end
+
+	local function serverHop()
+		local url = "https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100"
+		local ok, body = pcall(function()
+			return game:HttpGet(url:format(game.PlaceId))
+		end)
+
+		if not ok then
+			notify("Couldn't fetch the server list")
+
+			return
+		end
+
+		local decoded, data = pcall(HttpService.JSONDecode, HttpService, body)
+
+		if not decoded or type(data) ~= "table" or type(data.data) ~= "table" then
+			notify("Couldn't read the server list")
+
+			return
+		end
+
+		for _, server in ipairs(data.data) do
+			local hasRoom = server.playing and server.maxPlayers and server.playing < server.maxPlayers
+
+			if server.id ~= game.JobId and hasRoom then
+				queueReload()
+				TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id, LocalPlayer)
+
+				return
+			end
+		end
+
+		notify("No other server was found")
+	end
+
+	lib.ForceCheckbox = true
+
+	local window = lib:CreateWindow({
+		Title = "<b>Moonlight</b>",
+		Footer = "<b>Moonlight | Murder Mystery 2</b>",
+		ToggleKeybind = Enum.KeyCode.RightControl,
+		Center = true,
+		AutoShow = true,
+		EnableSidebarResize = true,
+		Icon = 79685990879972,
+		IconSize = UDim2.fromOffset(32, 32),
+		CornerRadius = 6,
+		Compact = true,
+		Animations = {
+			ToggleWindow = false,
+			TabSwitch = true,
+			Dropdown = true,
+			Groupbox = true,
+			KeyPicker = true,
+		},
+		TabSwipeFrom = "Auto",
+		TabButtonsStyle = {
+			Gap = 3,
+			Padding = 8,
+			CornerRadius = 6,
+			Indicator = true,
+			IndicatorWidth = 2,
+			IndicatorHeight = 20,
+		},
+	})
+
+	local tabs = {
+		Home = window:AddTab("<b>Home</b>", "house"),
+		Visual = window:AddTab("<b>Visual</b>", "eye"),
+		Player = window:AddTab("<b>Player</b>", "person-standing"),
+		Farm = window:AddTab("<b>Farm</b>", "sprout"),
+		Misc = window:AddTab("<b>Misc</b>", "funnel"),
+		Settings = window:AddTab("<b>Settings</b>", "settings"),
+	}
+
+	do
+		local greetings = tabs.Home:AddLeftGroupbox("Greetings", "chess-queen")
+		local hour = tonumber(os.date("%H")) or 12
+		local greeting = "Night"
+
+		if hour >= 5 and hour < 12 then
+			greeting = "Morning"
+		elseif hour >= 12 and hour < 17 then
+			greeting = "Afternoon"
+		elseif hour >= 17 and hour < 21 then
+			greeting = "Evening"
+		end
+
+		greetings:AddLabel({ Text = ("%s, <b>%s</b> "):format(greeting, LocalPlayer.DisplayName), DoesWrap = true })
+		greetings:AddDivider()
+		greetings:AddLabel({ Text = 'Welcome to <b><font color="#b0c4ff">Moonlight</font></b>', DoesWrap = true })
+
+		local statistics = tabs.Home:AddRightGroupbox("Statistics", "chart-no-axes-combined")
+
+		statistics:AddLabel("CurrentTime", { Text = "Current time: 00:00", DoesWrap = true })
+		statistics:AddLabel("ElapsedTime", { Text = "Elapsed time: 0 seconds", DoesWrap = true })
+		statistics:AddDivider("Server Statistics")
+		statistics:AddLabel("Game name: <b>Murder Mystery 2</b>")
+		statistics:AddLabel("PlayerCount", { Text = "Players: 0", DoesWrap = true })
+		statistics:AddLabel("YourRole", { Text = "Your role: Innocent", DoesWrap = true })
+
+		local scriptBox = tabs.Home:AddRightGroupbox("Script", "scroll")
+
+		scriptBox:AddButton({
+			Text = "Unload Script",
+			Func = function()
+				lib:Unload()
+			end,
+			DoubleClick = true,
+		})
+
+		scriptBox:AddButton({ Text = "Rejoin", Func = rejoin, DoubleClick = true })
+		scriptBox:AddButton({ Text = "Server-Hop", Func = serverHop, DoubleClick = true })
+		scriptBox:AddToggle("ReloadOnTeleport", { Text = "Reload After Teleport", Default = true })
+	end
+
+	do
+		local players = tabs.Visual:AddLeftGroupbox("Player ESP", "users")
+
+		players:AddToggle("PlayerESP", { Text = "Enable ESP", Default = false })
+		players:AddToggle("HighlightPlayers", { Text = "Highlight Players", Default = true })
+		players:AddToggle("ShowNames", { Text = "Show Names And Roles", Default = true })
+		players:AddToggle("ShowDistance", { Text = "Show Distance", Default = true })
+		players:AddDivider("Roles")
+
+		for _, role in ipairs({ "Murderer", "Sheriff", "Innocent" }) do
+			local settings = roleSettings[role]
+
+			local toggle = players:AddToggle(settings.Toggle, { Text = "Show " .. role, Default = true })
+
+			toggle:AddColorPicker(settings.Color, { Default = settings.Default, Title = role .. " Color" })
+		end
+
+		local world = tabs.Visual:AddRightGroupbox("World", "globe")
+
+		world:AddToggle("GunESP", { Text = "Dropped Gun ESP", Default = false })
+		world:AddToggle("NotifyGunDrop", { Text = "Notify On Gun Drop", Default = true })
+		world:AddToggle("Fullbright", { Text = "Fullbright", Default = false })
+		world:AddToggle("FovEnabled", { Text = "Custom Field Of View", Default = false })
+		world:AddSlider("FovValue", {
+			Text = "Field Of View",
+			Default = 90,
+			Min = 40,
+			Max = 120,
+			Rounding = 0,
+			Compact = true,
+		})
+	end
+
+	do
+		local movement = tabs.Player:AddLeftGroupbox("Movement", "move")
+
+		movement:AddToggle("WalkSpeedEnabled", { Text = "Walk Speed", Default = false })
+		movement:AddSlider("WalkSpeedValue", {
+			Text = "Speed",
+			Default = 24,
+			Min = 16,
+			Max = 100,
+			Rounding = 0,
+			Compact = true,
+		})
+		movement:AddToggle("JumpPowerEnabled", { Text = "Jump Power", Default = false })
+		movement:AddSlider("JumpPowerValue", {
+			Text = "Power",
+			Default = 70,
+			Min = 50,
+			Max = 200,
+			Rounding = 0,
+			Compact = true,
+		})
+		movement:AddToggle("InfiniteJump", { Text = "Infinite Jump", Default = false })
+		movement:AddToggle("Noclip", { Text = "Noclip", Default = false })
+	end
+
+	do
+		local coins = tabs.Farm:AddLeftGroupbox("Coins", "coins")
+
+		coins:AddToggle("AutoCollectCoins", { Text = "Auto Collect Coins", Default = false })
+		coins:AddSlider("FarmSpeed", {
+			Text = "Collect Speed",
+			Default = 40,
+			Min = 20,
+			Max = 120,
+			Rounding = 0,
+			Suffix = " studs/s",
+			Compact = true,
+		})
+		coins:AddSlider("FarmDelay", {
+			Text = "Delay Between Coins",
+			Default = 0.1,
+			Min = 0,
+			Max = 1,
+			Rounding = 2,
+			Suffix = "s",
+			Compact = true,
+		})
+
+		local gun = tabs.Farm:AddRightGroupbox("Gun", "crosshair")
+
+		gun:AddButton({ Text = "Grab Dropped Gun", Func = grabGun })
+	end
+
+	do
+		local misc = tabs.Misc:AddLeftGroupbox("Utility", "wrench")
+
+		misc:AddToggle("AntiAfk", { Text = "Anti-AFK", Default = true })
+	end
+
+	task.spawn(function()
+		while state.Running do
+			task.wait(0.2)
+
+			local ok = pcall(updateEsp)
+
+			if not ok then
+				task.wait(0.5)
+			end
+		end
+	end)
+
+	task.spawn(function()
+		while state.Running do
+			task.wait(0.5)
+
+			local labels = lib.Labels
+			local role = getRole(LocalPlayer)
+
+			if labels.CurrentTime then
+				labels.CurrentTime:SetText(("Current time: <b>%s</b>"):format(os.date("%H:%M")))
+			end
+
+			if labels.ElapsedTime then
+				labels.ElapsedTime:SetText(("Elapsed time: <b>%d seconds</b>"):format(math.floor(tick() - startedAt)))
+			end
+
+			if labels.PlayerCount then
+				labels.PlayerCount:SetText(("Players: <b>%d</b>"):format(#Players:GetPlayers()))
+			end
+
+			if labels.YourRole then
+				labels.YourRole:SetText(("Your role: <b>%s</b>"):format(role))
+			end
+		end
+	end)
+
+	themeManager:SetLibrary(lib)
+	saveManager:SetLibrary(lib)
+	saveManager.AutoLayout = type(writefile) == "function"
+		and type(readfile) == "function"
+		and type(isfile) == "function"
+	saveManager:IgnoreThemeSettings()
+	saveManager:SetFolder("Moonlight/MM2")
+	saveManager:BuildConfigSection(tabs.Settings)
+	saveManager:LoadAutoloadConfig()
+
+	task.spawn(function()
+		themeManager:Start()
+	end)
+
+	lib:OnUnload(function()
+		state.Running = false
+
+		for _, connection in ipairs(connections) do
+			pcall(function()
+				connection:Disconnect()
+			end)
+		end
+
+		table.clear(connections)
+
+		local _, humanoid = getCharacter()
+
+		if humanoid then
+			pcall(function()
+				humanoid.WalkSpeed = 16
+				humanoid.JumpPower = 50
+			end)
+		end
+
+		if state.AppliedFov and Workspace.CurrentCamera then
+			Workspace.CurrentCamera.FieldOfView = 70
+		end
+
+		if state.AppliedLighting then
+			restoreLighting()
+		end
+
+		if espFolder then
+			espFolder:Destroy()
+		end
+
+		env.MoonlightRunning = false
+	end)
+
+	local warning = compat and compat.Warning and compat.Warning() or nil
+
+	if warning then
+		task.delay(2, function()
+			notify(warning)
+		end)
+	end
+
+	local elapsed = math.floor((tick() - (env.LoadTime or tick())) * 100) / 100
+
+	notify("Script loaded in " .. elapsed .. " seconds")
+	env.LoadTime = nil
+
+	return {}
+end
+
+return MM2
+]====]
 sources.Bootstrap = [====[
 local sources = ...
 local env = getgenv and getgenv() or _G
@@ -42124,7 +42994,7 @@ local ok, result = xpcall(function()
 	if type(writefile) == "function" and type(readfile) == "function" then
 		local success = pcall(function()
 			local lines = { "local sources = {}" }
-			for _, name in ipairs({ "Library", "ThemeManager", "SaveManager", "Icons", "Main", "Bootstrap" }) do
+			for _, name in ipairs({ "Library", "ThemeManager", "SaveManager", "Icons", "MM2", "Main", "Bootstrap" }) do
 				lines[#lines + 1] = string.format("sources[%q] = %q", name, sources[name])
 			end
 			lines[#lines + 1] = 'local run, message = loadstring(sources.Bootstrap, "@Moonlight/Bootstrap"); assert(run, message); return run(sources)'
