@@ -32,7 +32,7 @@ local Toggles = {}
 local Options = {}
 local Tooltips = {}
 
-local BaseURL = "https://raw.githubusercontent.com/undeited/Moonlight/main/"
+local BaseURL = "https://raw.githubusercontent.com/undeited/moonlight/main/"
 local CustomImageManager = {}
 local CustomImageManagerAssets = {
 	TransparencyTexture = {
@@ -16090,7 +16090,7 @@ if writefile and readfile and isfile and isfolder and makefolder and getcustomas
 		if NeedsDownload then
 			local Success, Result = pcall(function()
 				return game:HttpGet(
-					`https://raw.githubusercontent.com/undeited/Moonlight/main/spritesheets/{spritesheet}.png`
+					`https://raw.githubusercontent.com/undeited/moonlight/main/spritesheets/{spritesheet}.png`
 				)
 			end)
 
