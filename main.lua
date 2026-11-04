@@ -31367,6 +31367,26 @@ end
 			end
 
 			if child.Name == "GrabParts" then
+				if tbl7.CombatSilentAim and tbl7.CombatSilentAim.Enabled then
+					task.spawn(function()
+						local grabPart = child:WaitForChild("GrabPart", 1)
+						local weld = grabPart and grabPart:WaitForChild("WeldConstraint", 1)
+						local deadline = os.clock() + 1
+
+						while weld and not weld.Part1 and child.Parent and os.clock() < deadline do
+							task.wait()
+						end
+
+						local held = weld and weld.Part1
+						local model = held and held:FindFirstAncestorWhichIsA("Model")
+						local grabbedPlayer = model and Players:GetPlayerFromCharacter(model)
+
+						if grabbedPlayer and tbl7.CombatSilentAim then
+							tbl7.CombatSilentAim.OnGrab(grabbedPlayer)
+						end
+					end)
+				end
+
 				local beamPart = child:WaitForChild("BeamPart", 0.1)
 				beamPart = beamPart and beamPart:WaitForChild("GrabBeam", 0.1)
 
@@ -31617,10 +31637,6 @@ Escape Timer: %*]]
 					end
 
 					local playerFromCharacter = part1.Name == "HumanoidRootPart" and Players:GetPlayerFromCharacter(part1.Parent)
-
-					if playerFromCharacter and tbl7.CombatSilentAim then
-						tbl7.CombatSilentAim.OnGrab(playerFromCharacter)
-					end
 
 					if tbl8.Grab then
 						local parent2 = part1.Parent and Players:FindFirstChild(part1.Parent.Name)
@@ -34927,6 +34943,7 @@ Escape Timer: %*]]
 			RebuildFrames = 5,
 			MaxCandidates = 5,
 			PassChecked = false,
+			LastGrab = 0,
 			MoveTime = 0.15,
 			CameraTime = 0.25,
 			StopDistance = 3,
@@ -35106,6 +35123,11 @@ Escape Timer: %*]]
 				return
 			end
 
+			if os.clock() - silentAim.LastGrab < 0.6 then
+				return
+			end
+
+			silentAim.LastGrab = os.clock()
 			silentAim.Moving = true
 
 			task.spawn(function()
@@ -35126,25 +35148,27 @@ Escape Timer: %*]]
 			end)
 
 			task.spawn(function()
-				local start = root.Position
-				local elapsed = 0
+				pcall(function()
+					local start = root.Position
+					local elapsed = 0
 
-				while elapsed < silentAim.MoveTime and not flag11 and silentAim.Enabled and root.Parent and targetRoot.Parent do
-					elapsed += RunService.Heartbeat:Wait()
+					while elapsed < silentAim.MoveTime and not flag11 and silentAim.Enabled and root.Parent and targetRoot.Parent do
+						elapsed += RunService.Heartbeat:Wait()
 
-					local targetPosition = targetRoot.Position
-					local flat = Vector3.new(targetPosition.X - start.X, 0, targetPosition.Z - start.Z)
+						local targetPosition = targetRoot.Position
+						local flat = Vector3.new(targetPosition.X - start.X, 0, targetPosition.Z - start.Z)
 
-					if flat.Magnitude <= silentAim.StopDistance then
-						break
+						if flat.Magnitude <= silentAim.StopDistance then
+							break
+						end
+
+						local destination = Vector3.new(targetPosition.X, targetPosition.Y, targetPosition.Z) - flat.Unit * silentAim.StopDistance
+						local position = start:Lerp(destination, math.clamp(elapsed / silentAim.MoveTime, 0, 1))
+
+						root.CFrame = CFrame.lookAt(position, Vector3.new(targetPosition.X, position.Y, targetPosition.Z))
+						root.AssemblyLinearVelocity = Vector3.zero
 					end
-
-					local destination = Vector3.new(targetPosition.X, targetPosition.Y, targetPosition.Z) - flat.Unit * silentAim.StopDistance
-					local position = start:Lerp(destination, math.clamp(elapsed / silentAim.MoveTime, 0, 1))
-
-					root.CFrame = CFrame.lookAt(position, Vector3.new(targetPosition.X, position.Y, targetPosition.Z))
-					root.AssemblyLinearVelocity = Vector3.zero
-				end
+				end)
 
 				silentAim.Moving = false
 			end)
@@ -35158,6 +35182,16 @@ Escape Timer: %*]]
 			local patch = {}
 
 			local function wrapper(self, ...)
+				if silentAim.Enabled and self == tbl11.CreateGrabLine and not flag11 and getnamecallmethod() == "FireServer" and not (checkcaller and checkcaller()) then
+					local part = ...
+					local model = typeof(part) == "Instance" and part:IsA("BasePart") and part:FindFirstAncestorWhichIsA("Model")
+					local player = model and Players:GetPlayerFromCharacter(model)
+
+					if player then
+						task.defer(silentAim.OnGrab, player)
+					end
+				end
+
 				if
 					silentAim.Enabled
 						and silentAim.Target
