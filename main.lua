@@ -31619,7 +31619,7 @@ Escape Timer: %*]]
 					local playerFromCharacter = part1.Name == "HumanoidRootPart" and Players:GetPlayerFromCharacter(part1.Parent)
 
 					if playerFromCharacter and tbl7.CombatSilentAim then
-						tbl7.CombatSilentAim.OnGrab()
+						tbl7.CombatSilentAim.OnGrab(playerFromCharacter)
 					end
 
 					if tbl8.Grab then
@@ -34927,10 +34927,9 @@ Escape Timer: %*]]
 			RebuildFrames = 5,
 			MaxCandidates = 5,
 			PassChecked = false,
-			LastRedirect = 0,
-			RedirectWindow = 1,
-			MoveSpeed = 40,
-			MoveTime = 0.3,
+			MoveTime = 0.15,
+			CameraTime = 0.25,
+			StopDistance = 3,
 			Moving = false,
 		}
 
@@ -35095,38 +35094,56 @@ Escape Timer: %*]]
 			end
 		end
 
-		silentAim.OnGrab = function()
-			if not silentAim.Enabled or flag11 or silentAim.Moving then
-				return
-			end
-
-			if os.clock() - silentAim.LastRedirect > silentAim.RedirectWindow then
+		silentAim.OnGrab = function(player)
+			if not silentAim.Enabled or flag11 or silentAim.Moving or not player then
 				return
 			end
 
 			local _, root, humanoid = tbl12.Char()
+			local _, targetRoot, targetHumanoid = tbl12.Char(player)
 
-			if not (root and humanoid and humanoid.Health > 0) then
+			if not (root and humanoid and humanoid.Health > 0 and targetRoot and targetHumanoid and targetHumanoid.Health > 0) then
 				return
 			end
 
-			local look = root.CFrame.LookVector
-			local direction = Vector3.new(look.X, 0, look.Z)
-
-			if direction.Magnitude < 0.1 then
-				return
-			end
-
-			direction = direction.Unit
 			silentAim.Moving = true
 
 			task.spawn(function()
-				local finish = os.clock() + silentAim.MoveTime
+				local bindName = "MoonlightSilentAimCamera"
 
-				while os.clock() < finish and not flag11 and silentAim.Enabled and root.Parent do
-					local velocity = root.AssemblyLinearVelocity
-					root.AssemblyLinearVelocity = Vector3.new(direction.X * silentAim.MoveSpeed, velocity.Y, direction.Z * silentAim.MoveSpeed)
-					RunService.Heartbeat:Wait()
+				pcall(RunService.UnbindFromRenderStep, RunService, bindName)
+
+				RunService:BindToRenderStep(bindName, Enum.RenderPriority.Camera.Value + 1, function()
+					local camera = workspace.CurrentCamera
+
+					if camera and targetRoot.Parent then
+						camera.CFrame = CFrame.lookAt(camera.CFrame.Position, targetRoot.Position)
+					end
+				end)
+
+				task.wait(silentAim.CameraTime)
+				pcall(RunService.UnbindFromRenderStep, RunService, bindName)
+			end)
+
+			task.spawn(function()
+				local start = root.Position
+				local elapsed = 0
+
+				while elapsed < silentAim.MoveTime and not flag11 and silentAim.Enabled and root.Parent and targetRoot.Parent do
+					elapsed += RunService.Heartbeat:Wait()
+
+					local targetPosition = targetRoot.Position
+					local flat = Vector3.new(targetPosition.X - start.X, 0, targetPosition.Z - start.Z)
+
+					if flat.Magnitude <= silentAim.StopDistance then
+						break
+					end
+
+					local destination = Vector3.new(targetPosition.X, targetPosition.Y, targetPosition.Z) - flat.Unit * silentAim.StopDistance
+					local position = start:Lerp(destination, math.clamp(elapsed / silentAim.MoveTime, 0, 1))
+
+					root.CFrame = CFrame.lookAt(position, Vector3.new(targetPosition.X, position.Y, targetPosition.Z))
+					root.AssemblyLinearVelocity = Vector3.zero
 				end
 
 				silentAim.Moving = false
@@ -35153,7 +35170,6 @@ Escape Timer: %*]]
 
 					if typeof(arguments[1]) == "Vector3" then
 						arguments[2] = (silentAim.Target - arguments[1]).Unit * silentAim.AimDistance
-						silentAim.LastRedirect = os.clock()
 
 						return patch.Original(self, table.unpack(arguments, 1, arguments.n))
 					end
@@ -35238,6 +35254,7 @@ Escape Timer: %*]]
 			silentAim.Enabled = false
 			silentAim.Target = nil
 			tbl7.CombatSilentAim = nil
+			pcall(RunService.UnbindFromRenderStep, RunService, "MoonlightSilentAimCamera")
 			tbl12.SetRuntimeConnection("CombatSilentAim", RunService.RenderStepped, false)
 			pcall(silentAim.Unhook)
 		end)
