@@ -16240,7 +16240,6 @@ do
 			Name = "Raycast Silent Aim",
 			Needs = { "hookmetamethod", "getnamecallmethod" },
 			Optional = { "newcclosure", "checkcaller", "getrawmetatable", "getcallingscript" },
-			Note = "The Silent Aim on the Misc tab still works through its hitbox method",
 		},
 		{
 			Name = "Position Desync",
@@ -16401,7 +16400,7 @@ do
 	local StarterGui, fn17, flag11, lib, lib2, lib3, options, toggles, Players, Lighting
 	local UserInputService, ReplicatedStorage, RunService, PhysicsService, HttpService, terrain, map, alwaysHereTweenedObjects, localPlayer, currentCamera
 	local fieldOfView, cFrame, mouse, v17, v18, parent, screenGui, part2, textButton, part3
-	local tbl6, n34, n35, tbl7, fn18, tbl8, tbl9, fn19, tbl10, tbl11
+	local n34, n35, tbl7, fn18, tbl8, tbl9, fn19, tbl10, tbl11
 	local tbl12, fn20, tbl13, tbl14, v19, tbl15
 
 	do
@@ -16592,27 +16591,6 @@ do
 						part3.CanCollide = true
 						part3.Material = Enum.Material.Neon
 						part3.Parent = workspace
-						tbl6 = { Gui = Instance.new("ScreenGui") }
-						tbl6.Gui.Name = "FOV"
-						tbl6.Gui.IgnoreGuiInset = true
-						tbl6.Gui.Parent = screenGui
-						tbl6.Frame = Instance.new("Frame")
-						tbl6.Frame.Name = "Circle"
-						tbl6.Frame.BackgroundColor3 = Color3.new(1, 1, 1)
-						tbl6.Frame.BackgroundTransparency = 1
-						tbl6.Frame.BorderSizePixel = 0
-						tbl6.Frame.Visible = false
-						tbl6.Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
-						tbl6.Frame.AnchorPoint = Vector2.new(0.5, 0.5)
-						tbl6.Frame.Parent = tbl6.Gui
-						tbl6.Stroke = Instance.new("UIStroke")
-						tbl6.Stroke.Color = Color3.new(1, 1, 1)
-						tbl6.Stroke.Thickness = 1
-						tbl6.Stroke.Transparency = 0.15
-						tbl6.Stroke.Parent = tbl6.Frame
-						tbl6.Corner = Instance.new("UICorner")
-						tbl6.Corner.CornerRadius = UDim.new(1, 0)
-						tbl6.Corner.Parent = tbl6.Frame
 						v21 = nil
 						n34 = 97643101798871
 						n35 = 1
@@ -16718,10 +16696,6 @@ do
 							ToyAuras = false,
 							AuraVisualizer = false,
 							ToyAuraVisualizer = false,
-							SilentAim = false,
-							SilentAimFOV = false,
-							SilentAimIgnoreWhitelist = true,
-							SilentAimTargetsOnly = false,
 							PositionPrediction = false,
 							DirectGrab = false,
 							LagServer = false,
@@ -16764,8 +16738,6 @@ do
 							TargetedLimbAura = "All",
 							TargetedLimbCA = "All",
 							TargetedLimbTE = "All",
-							SAIMHitbox = 10,
-							SAIMRadius = 250,
 							AutoClickerOffset = CFrame.new(0, 0, -5),
 							AutoClickerTransparency = 0,
 							SelectedACPose = "Default",
@@ -16831,7 +16803,6 @@ do
 							SelectedPlayersEffect = {},
 							SelectedTeleportPlayers = {},
 							SelectedToysAuraPlayers = {},
-							SelectedSilentAimPlayers = {},
 							AdminImmune = {},
 							MoonlightUsers = {},
 							PlayerDropdowns = {},
@@ -17006,27 +16977,6 @@ do
 								AuraColor = Color3.fromRGB(255, 80, 80),
 								ToyAuraColor = Color3.fromRGB(80, 180, 255),
 							},
-							AimSettings = {
-								AimbotEnabled = false,
-								AlwaysOn = lib.IsMobile,
-								TriggerbotEnabled = false,
-								AimDebounce = false,
-								TriggerBotDebounce = false,
-								AimKey = Enum.KeyCode.X,
-								Smoothness = 0.15,
-								SADist = 40,
-								TriggerDist = 20,
-								TargetPart = "Head",
-								TriggerDelay = 0.05,
-								TriggerCooldown = 0.4,
-								TriggerVersion = 0,
-								TriggerTricks = false,
-								TriggerTrick = "360 Spin",
-								TriggerTrickSpeed = 1,
-								FOVEnabled = false,
-								FOVRadius = 150,
-							},
-							AimRaycastFilter = {},
 							Gradients = {
 								Color1 = Color3.fromRGB(255, 0, 0),
 								Color2 = Color3.fromRGB(255, 165, 0),
@@ -18971,115 +18921,6 @@ end
 						return value ~= nil and value >= Enum.ConnectionError.DisconnectErrors.Value and value < Enum.ConnectionError.PlacelaunchErrors.Value
 					end
 
-					tbl12.AimRaycastParams = RaycastParams.new()
-					tbl12.AimRaycastParams.FilterType = Enum.RaycastFilterType.Exclude
-
-					tbl12.GetAimTarget = function()
-						local aimSettings = tbl7.AimSettings
-						local character = localPlayer.Character
-						local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-						if not humanoidRootPart then
-							return nil
-						end
-						local position = currentCamera.CFrame.Position
-						local position2 = humanoidRootPart.Position
-						local x = mouse.X
-						local y = mouse.Y
-
-						if lib.IsMobile then
-							x = currentCamera.ViewportSize.X / 2
-							y = currentCamera.ViewportSize.Y / 2
-						end
-
-						local worldToViewportPoint
-
-						if lib.IsMobile then
-							worldToViewportPoint = currentCamera.WorldToViewportPoint
-						else
-							worldToViewportPoint = currentCamera.WorldToScreenPoint
-						end
-
-						local n36 = aimSettings.FOVRadius * aimSettings.FOVRadius
-						local n37 = aimSettings.SADist * aimSettings.SADist
-						local aimRaycastFilter = tbl7.AimRaycastFilter
-						local aimRaycastParams = tbl12.AimRaycastParams
-						local huge = math.huge
-						local v24 = nil
-
-						for _, v25 in pairs(tbl7.PlayerList) do
-							if v25 ~= localPlayer and v25.Character and not tbl12.IsProtectedPlayer(v25, true) then
-								local inPlot2 = v25:FindFirstChild("InPlot")
-
-								if not (inPlot2 and inPlot2.Value) then
-									local v26 = v25.Character:FindFirstChild(aimSettings.TargetPart)
-									local humanoid = v25.Character:FindFirstChild("Humanoid")
-
-									if v26 and humanoid and humanoid.Health > 0 then
-										local v27, v28 = worldToViewportPoint(currentCamera, v26.Position)
-
-										if v28 then
-											local n38 = v27.X - x
-											local n39 = v27.Y - y
-
-											if n38 * n38 + n39 * n39 <= n36 then
-												local character2 = v25.Character
-												aimRaycastFilter[1] = character
-												aimRaycastFilter[2] = character2
-												aimRaycastParams.FilterDescendantsInstances = aimRaycastFilter
-												local position3 = v26.Position
-
-												if not workspace:Raycast(position, position3 - position, aimRaycastParams) then
-													local n40 = position2 - position3
-													local v29 = n40:Dot(n40)
-
-													if v29 < huge and v29 <= n37 then
-														huge = v29
-														v24 = v25
-													end
-												end
-											end
-										end
-									end
-								end
-							end
-						end
-
-						return v24
-					end
-
-					tbl12.Click = function()
-						if not lib.IsMobile then
-							if mouse1click then
-								return mouse1click()
-							end
-
-							if mouse1press then
-								mouse1press()
-								task.wait()
-
-								if mouse1release then
-									mouse1release()
-								end
-							end
-
-							return
-						end
-
-						if pcall(function()
-							ContextActionService:CallFunction("Grab", Enum.UserInputState.Begin, game)
-						end) then
-							return
-						end
-						local button = ContextActionService:GetButton("Grab")
-						if not button or not button.Visible then
-							return
-						end
-						local n36 = button.AbsolutePosition + button.AbsoluteSize / 2
-						VirtualInputManager:SendTouchEvent(1, 0, n36.X, n36.Y)
-						RunService.RenderStepped:Wait()
-						VirtualInputManager:SendTouchEvent(1, 2, n36.X, n36.Y)
-					end
-
 					tbl12.TweenFOV = function(arg, arg2)
 						if tween then
 							tween:Cancel()
@@ -19311,526 +19152,6 @@ end
 					tbl8.AuraVisualizer = false
 					v24.ToyAuraVisualizer = false
 					tbl12.RefreshAuraVisuals()
-				end
-
-				tbl12.GetTriggerTarget = function()
-					local aimSettings = tbl7.AimSettings
-					local silentAimState = tbl7.SilentAimState
-					if flag11 or not aimSettings.TriggerbotEnabled or UserInputService:GetFocusedTextBox() or workspace:FindFirstChild("GrabParts") then
-						return
-					end
-					local v24, v25, v26 = tbl12.Char()
-					if not (v25 and v26 and v26.Health > 0) then
-						return
-					end
-					local instance
-
-					if tbl8.SilentAim and silentAimState.RaycastActive then
-						local hit = silentAimState.Hit
-
-						if hit then
-							hit = os.clock() - (silentAimState.HitTime or 0) < 0.15
-						end
-
-						if hit then
-							instance = silentAimState.Hit.Instance
-						else
-							instance = nil
-						end
-					else
-						instance = tbl12.GetTarget()
-					end
-
-					if not (instance and instance.Parent) or (instance.Position - v25.Position).Magnitude > aimSettings.TriggerDist then
-						return
-					end
-					local model = instance:FindFirstAncestorOfClass("Model")
-					local playerFromCharacter = model and Players:GetPlayerFromCharacter(model)
-					if not playerFromCharacter or playerFromCharacter == localPlayer or tbl12.IsProtectedPlayer(playerFromCharacter, true) or tbl8.SilentAim and not tbl12.IsSilentAimTarget(playerFromCharacter) then
-						return
-					end
-					local v27, v28, v29 = tbl12.Char(playerFromCharacter)
-					if v29 and v29.Health > 0 then
-						return playerFromCharacter
-					end
-				end
-
-				tbl12.PlayTriggerTrick = function(arg, arg2)
-					local aimSettings = tbl7.AimSettings
-					local v24, v25, v26 = tbl12.Char()
-					local v27, v28, v29 = tbl12.Char(arg2)
-					local currentCamera2 = workspace.CurrentCamera
-					local triggerTrick = aimSettings.TriggerTrick
-					if not (v25 and v26 and v26.Health > 0 and currentCamera2 and v28 and v29 and v29.Health > 0) then
-						return false
-					end
-					local cFrame2 = currentCamera2.CFrame
-					local cameraType = currentCamera2.CameraType
-					local n36 = 0
-					local position = v25.Position
-					local rotation = v25.CFrame.Rotation
-					local autoRotate = v26.AutoRotate
-					local n37
-
-					if triggerTrick == "720 Spin" then
-						n37 = 2
-					else
-						n37 = 1
-					end
-
-					local v30 = n37
-					local n38 = 0.175 * v30 / math.clamp(aimSettings.TriggerTrickSpeed, 0.75, 2)
-
-					local ok, result = pcall(function()
-						aimSettings.TriggerSpinning = true
-						local v31 = v26
-						currentCamera2.CameraType = Enum.CameraType.Scriptable
-						v31.AutoRotate = false
-
-						repeat
-							n36 += RunService.RenderStepped:Wait()
-							if flag11 or v26.Health <= 0 or not aimSettings.TriggerbotEnabled or not aimSettings.TriggerTricks or aimSettings.TriggerVersion ~= arg or localPlayer.Character ~= v24 or workspace:FindFirstChild("GrabParts") then
-								return false
-							end
-
-							if workspace.CurrentCamera ~= currentCamera2 or arg2.Character ~= v27 or not v28.Parent or v29.Health <= 0 then
-								return false
-							end
-
-							if UserInputService:GetFocusedTextBox() or tbl12.IsProtectedPlayer(arg2, true) or tbl8.SilentAim and not tbl12.IsSilentAimTarget(arg2) or (v28.Position - v25.Position).Magnitude > aimSettings.TriggerDist then
-								return false
-							end
-							local n39 = math.min(n36 / n38, 1)
-							local n40 = cFrame2.Position + v25.Position - position
-							if (v28.Position - n40).Magnitude < 0.001 then
-								return false
-							end
-							local v32 = cFrame2.Rotation:Lerp(CFrame.lookAt(n40, v28.Position).Rotation, n39)
-							local n41
-
-							if triggerTrick == "180 Flick" then
-								n41 = math.sin(n39 * 3.1415926535897931) * 3.1415926535897931
-							else
-								n41 = n39 * 3.1415926535897931 * 2 * v30
-							end
-
-							currentCamera2.CFrame = CFrame.new(n40) * CFrame.Angles(0, n41, 0) * v32
-							local n42 = currentCamera2.CFrame.LookVector * Vector3.new(1, 0, 1)
-
-							if n42.Magnitude > 0.001 then
-								v25.CFrame = CFrame.lookAt(v25.Position, v25.Position + n42)
-							end
-						until n36 >= n38
-
-						return true
-					end)
-
-					aimSettings.TriggerSpinning = false
-
-					if v26.Parent then
-						v26.AutoRotate = autoRotate
-					end
-
-					if not (ok and result) and v25.Parent then
-						v25.CFrame = CFrame.new(v25.Position) * rotation
-					end
-
-					if currentCamera2.Parent then
-						if not (ok and result) then
-							currentCamera2.CFrame = cFrame2 + v25.Position - position
-						end
-
-						currentCamera2.CameraType = cameraType
-					end
-
-					return ok and result
-				end
-
-				tbl12.UpdateTriggerbot = function()
-					local aimSettings = tbl7.AimSettings
-					if aimSettings.TriggerBotDebounce then
-						return
-					end
-					local v24 = tbl12.GetTriggerTarget()
-					if not v24 then
-						return
-					end
-					local character = localPlayer.Character
-					local triggerVersion = aimSettings.TriggerVersion
-					aimSettings.TriggerBotDebounce = true
-
-					task.spawn(function()
-						pcall(function()
-							task.wait(aimSettings.TriggerDelay)
-							if aimSettings.TriggerVersion ~= triggerVersion or localPlayer.Character ~= character or tbl12.GetTriggerTarget() ~= v24 then
-								return
-							end
-
-							if aimSettings.TriggerTricks then
-								if not tbl12.PlayTriggerTrick(triggerVersion, v24) then
-									return
-								end
-								RunService.Heartbeat:Wait()
-							end
-
-							if aimSettings.TriggerVersion ~= triggerVersion or localPlayer.Character ~= character or tbl12.GetTriggerTarget() ~= v24 then
-								return
-							end
-							tbl12.Click()
-							task.wait(0.2)
-
-							while not flag11 and aimSettings.TriggerbotEnabled and aimSettings.TriggerVersion == triggerVersion and localPlayer.Character == character and workspace:FindFirstChild("GrabParts") do
-								task.wait()
-							end
-
-							if not flag11 and aimSettings.TriggerVersion == triggerVersion then
-								task.wait(aimSettings.TriggerCooldown)
-							end
-						end)
-
-						aimSettings.TriggerBotDebounce = false
-					end)
-				end
-
-				tbl12.UpdateAimAssist = function()
-					local aimSettings = tbl7.AimSettings
-					local grabParts = workspace:FindFirstChild("GrabParts")
-					local viewportSize = currentCamera.ViewportSize
-					local vector2 = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-					local frame2 = tbl6.Frame
-
-					if aimSettings.FOVEnabled then
-						local n36 = aimSettings.FOVRadius * 2
-						local udim2 = UDim2.fromOffset(n36, n36)
-						local udim22 = UDim2.fromOffset(vector2.X, vector2.Y)
-
-						if not frame2.Visible then
-							frame2.Visible = true
-						end
-
-						if frame2.Size ~= udim2 then
-							frame2.Size = udim2
-						end
-
-						if frame2.Position ~= udim22 then
-							frame2.Position = udim22
-						end
-					elseif frame2.Visible then
-						frame2.Visible = false
-					end
-
-					if grabParts and not aimSettings.AimDebounce then
-						local grabPart = grabParts:FindFirstChild("GrabPart")
-						grabPart = grabPart and grabPart:FindFirstChild("WeldConstraint")
-						grabPart = grabPart and grabPart.Part1
-
-						if grabPart and grabPart.Parent and Players:GetPlayerFromCharacter(grabPart.Parent) then
-							aimSettings.AimDebounce = true
-
-							task.spawn(function()
-								while true do
-									task.wait()
-									if not (flag11 or not grabParts.Parent) then
-										continue
-									end
-									break
-								end
-
-								task.wait(0.3)
-								aimSettings.AimDebounce = false
-							end)
-						end
-
-						return
-					end
-
-					if aimSettings.AimbotEnabled and not aimSettings.AimDebounce and not aimSettings.TriggerSpinning then
-						local alwaysOn = aimSettings.AlwaysOn
-
-						if not alwaysOn then
-							if typeof(aimSettings.AimKey) == "EnumItem" then
-								if aimSettings.AimKey.EnumType == Enum.KeyCode then
-									alwaysOn = UserInputService:IsKeyDown(aimSettings.AimKey)
-								elseif aimSettings.AimKey.EnumType == Enum.UserInputType then
-									alwaysOn = UserInputService:IsMouseButtonPressed(aimSettings.AimKey)
-								end
-							end
-						end
-
-						local v24 = alwaysOn and tbl12.GetAimTarget()
-
-						if v24 and v24.Character and v24.Character:FindFirstChild(aimSettings.TargetPart) then
-							local smoothness = aimSettings.Smoothness
-							currentCamera.CFrame = currentCamera.CFrame:Lerp(CFrame.new(currentCamera.CFrame.Position, v24.Character[aimSettings.TargetPart].Position), smoothness)
-						end
-					end
-
-					if aimSettings.TriggerbotEnabled and not grabParts then
-						tbl12.UpdateTriggerbot()
-					end
-				end
-
-				tbl12.UpdateAimConnection = function()
-					local aimSettings = tbl7.AimSettings
-					local fovEnabled = aimSettings.FOVEnabled or aimSettings.AimbotEnabled or aimSettings.TriggerbotEnabled
-					tbl12.SetRuntimeConnection("AimAssist", RunService.RenderStepped, fovEnabled, tbl12.UpdateAimAssist)
-
-					if not fovEnabled and tbl6.Frame.Visible then
-						tbl6.Frame.Visible = false
-					end
-				end
-
-				tbl12.IsSilentAimTarget = function(arg)
-					return arg and arg ~= localPlayer and not tbl12.IsProtectedPlayer(arg, tbl8.SilentAimIgnoreWhitelist) and (not tbl8.SilentAimTargetsOnly or tbl7.SelectedSilentAimPlayers[arg])
-				end
-
-				tbl12.ApplySilentAimPlayer = function(arg)
-					if arg == localPlayer then
-						return
-					end
-					local v24, v25 = tbl12.Char(arg)
-					local silentAimState = tbl7.SilentAimState
-					local v26 = silentAimState.Players[arg]
-					local flag12 = tbl8.SilentAim and not silentAimState.RaycastActive and tbl12.IsSilentAimTarget(arg)
-
-					if v26 and (not flag12 or v26.Root ~= v25) then
-						if v26.Root.Parent then
-							v26.Root.Size = v26.Size
-							v26.Root.CustomPhysicalProperties = v26.Physics
-							v26.Root.CanCollide = v26.CanCollide
-						end
-
-						silentAimState.Players[arg] = nil
-						v26 = nil
-					end
-
-					if not v25 or not flag12 then
-						return
-					end
-
-					if not v26 or v26.Root ~= v25 then
-						silentAimState.Players[arg] = {
-							Root = v25,
-							Size = v25.Size,
-							Physics = v25.CustomPhysicalProperties,
-							CanCollide = v25.CanCollide,
-						}
-					end
-
-					local saimHitbox = tbl9.SAIMHitbox
-
-					if silentAimState.Size ~= saimHitbox then
-						silentAimState.Size = saimHitbox
-						silentAimState.HitboxSize = Vector3.new(saimHitbox, saimHitbox, saimHitbox)
-						silentAimState.PhysicalProperties = PhysicalProperties.new(2.8 / saimHitbox ^ 3, 0.3, 0.5, 1, 1)
-					end
-
-					v25.Size = silentAimState.HitboxSize
-					v25.CustomPhysicalProperties = silentAimState.PhysicalProperties
-					v25.CanCollide = false
-				end
-
-				tbl12.UpdateSilentAimFOV = function()
-					local silentAimState = tbl7.SilentAimState
-					silentAimState.Circle.Size = UDim2.fromOffset(tbl9.SAIMRadius * 2, tbl9.SAIMRadius * 2)
-					silentAimState.Circle.Visible = not flag11 and tbl8.SilentAim == true and silentAimState.RaycastActive == true and tbl8.SilentAimFOV == true
-				end
-
-				tbl12.RefreshSilentAim = function()
-					for _, v24 in ipairs(tbl7.PlayerList) do
-						tbl12.ApplySilentAimPlayer(v24)
-					end
-
-					local flag12 = tbl7.SilentAimState.RaycastActive == true
-					local silentAimMethod = lib.Labels and lib.Labels.SilentAimMethod
-
-					if silentAimMethod then
-						local v24 = silentAimMethod
-						local setText = v24.SetText
-						local method
-
-						if flag12 then
-							method = "Game Raycast"
-						else
-							method = "Hitbox (Compatibility)"
-						end
-
-						setText(v24, "Method: " .. method)
-					end
-
-					if options.SilentAimRadius then
-						options.SilentAimRadius:SetVisible(flag12)
-					end
-
-					if options.SilentAimSize then
-						options.SilentAimSize:SetVisible(not flag12)
-					end
-
-					if toggles.SilentAimFOV then
-						toggles.SilentAimFOV:SetVisible(flag12)
-					end
-
-					tbl12.UpdateSilentAimFOV()
-				end
-
-				tbl12.GetSilentAimHit = function(arg, arg2, arg3)
-					local currentCamera2 = workspace.CurrentCamera
-					if not currentCamera2 or type(arg) ~= "number" or arg <= 0 then
-						return
-					end
-					arg3 = arg3 or currentCamera2.CFrame.Position
-					local n36 = currentCamera2.ViewportSize / 2
-					local n37 = tbl9.SAIMRadius ^ 2
-					local v24 = nil
-
-					for _, v25 in ipairs(tbl7.PlayerList) do
-						if tbl12.IsSilentAimTarget(v25) then
-							local v26, v27, v28 = tbl12.Char(v25)
-
-							if v27 and v28 and v28.Health > 0 then
-								local v29, v30 = currentCamera2:WorldToViewportPoint(v27.Position)
-
-								if v30 then
-									local n38 = v29.X - n36.X
-									local n39 = v29.Y - n36.Y
-									local n40 = n38 * n38 + n39 * n39
-									local n41 = v27.Position - arg3
-									local magnitude = n41.Magnitude
-
-									if n40 <= n37 and magnitude > 0.001 and magnitude <= arg + v27.Size.Magnitude / 2 then
-										local hit = workspace:Raycast(arg3, n41.Unit * math.min(arg, magnitude + v27.Size.Magnitude / 2), arg2)
-
-										if hit and hit.Instance:IsDescendantOf(v26) then
-											n37 = n40
-											v24 = hit
-										end
-									end
-								end
-							end
-						end
-					end
-
-					return v24
-				end
-
-				tbl12.SetSilentAim = function(arg)
-					local silentAimState = tbl7.SilentAimState
-					arg = arg and not flag11
-
-					if arg then
-						silentAimState.Failed = nil
-					end
-
-					silentAimState.Hit = nil
-					silentAimState.HitTime = nil
-					tbl12.SetRuntimeToggle("SilentAim", arg)
-
-					tbl12.SetRuntimeConnection("SilentAimStatus", RunService.Heartbeat, not flag11, function()
-						if silentAimState.Dirty then
-							silentAimState.Dirty = nil
-							tbl12.RefreshSilentAim()
-						end
-					end)
-
-					if flag11 then
-						local patch = silentAimState.Patch
-
-						if patch and getrawmetatable then
-							local ok, result = pcall(getrawmetatable, game)
-
-							if ok and result.__namecall == patch.Wrapper then
-								pcall(hookmetamethod, game, "__namecall", patch.Original)
-							end
-						end
-
-						silentAimState.Patch = nil
-						silentAimState.Dirty = nil
-						silentAimState.Failed = nil
-					elseif not silentAimState.Patch and type(hookmetamethod) == "function" and type(getnamecallmethod) == "function" then
-						local patch = {}
-
-						local function wrapper(arg2, ...)
-							local v24 = table.pack(...)
-							if flag11 or not tbl8.SilentAim or not silentAimState.RaycastActive or arg2 ~= workspace or getnamecallmethod() ~= "Raycast" or checkcaller and checkcaller() then
-								return patch.Original(arg2, ...)
-							end
-							local v25 = ...
-							local value = select(2, ...)
-							local value2 = select(3, ...)
-							local currentCamera2 = workspace.CurrentCamera
-							if not currentCamera2 or typeof(v25) ~= "Vector3" or typeof(value) ~= "Vector3" or value.Magnitude <= 0 or (v25 - currentCamera2.CFrame.Position).Magnitude >= 0.1 or value.Unit:Dot(currentCamera2.CFrame.LookVector) <= 0.999 then
-								return patch.Original(arg2, table.unpack(v24, 1, v24.n))
-							end
-							local ok, result = pcall(getcallingscript)
-							if ok and result and result.Name ~= "GrabbingScript" and result.Name ~= "RaycastModule" then
-								return patch.Original(arg2, table.unpack(v24, 1, v24.n))
-							end
-							local ok2, hit = pcall(tbl12.GetSilentAimHit, value.Magnitude, value2, v25)
-
-							if ok2 and hit then
-								local v26 = silentAimState
-								local v27 = silentAimState
-								local now3 = os.clock()
-								v26.Hit = hit
-								v27.HitTime = now3
-								return hit
-							end
-
-							if not ok2 then
-								silentAimState.Failed = true
-								silentAimState.RaycastActive = false
-								silentAimState.Dirty = true
-							end
-
-							local v26 = workspace.Raycast(arg2, table.unpack(v24, 1, v24.n))
-							local v27 = silentAimState
-							local v28 = silentAimState
-							local now3 = os.clock()
-							v27.Hit = v26
-							v28.HitTime = now3
-							return v26
-						end
-
-						if newcclosure then
-							wrapper = newcclosure(wrapper)
-						end
-
-						patch.Wrapper = wrapper
-						local ok, original = pcall(hookmetamethod, game, "__namecall", patch.Wrapper)
-
-						if ok and type(original) == "function" then
-							patch.Original = original
-							silentAimState.Patch = patch
-						end
-					end
-
-					silentAimState.RaycastActive = not flag11 and silentAimState.Patch ~= nil and not silentAimState.Failed
-					tbl12.RefreshSilentAim()
-				end
-
-				tbl12.TrackSilentAimPlayer = function(arg)
-					lib:GiveSignal(arg.CharacterAdded:Connect(function(character)
-						local v24 = flag11
-						local flag12
-
-						if flag11 then
-							flag12 = v24
-						else
-							flag12 = not tbl8.SilentAim
-						end
-
-						if flag12 then
-							return
-						end
-
-						if not character:WaitForChild("HumanoidRootPart", 5) then
-							return
-						end
-
-						if not flag11 then
-							tbl12.ApplySilentAimPlayer(arg)
-						end
-					end))
 				end
 
 				tbl12.Ragdoll = function(arg)
@@ -32297,12 +31618,8 @@ Escape Timer: %*]]
 
 					local playerFromCharacter = part1.Name == "HumanoidRootPart" and Players:GetPlayerFromCharacter(part1.Parent)
 
-					if tbl8.SilentAim and not tbl7.SilentAimState.RaycastActive and tbl12.IsSilentAimTarget(playerFromCharacter) and weldConstraint then
-						tbl11.CreateGrabLine:FireServer()
-						tbl11.CreateGrabLine:FireServer(part1, CFrame.new())
-						weldConstraint.Enabled = false
-						part1.CFrame = dragPart.CFrame
-						weldConstraint.Enabled = true
+					if playerFromCharacter and tbl7.CombatSilentAim then
+						tbl7.CombatSilentAim.OnGrab()
 					end
 
 					if tbl8.Grab then
@@ -33853,22 +33170,6 @@ Escape Timer: %*]]
 				end
 			end
 		end)
-
-		tbl7.SilentAimState = { Players = setmetatable({}, { __mode = "k" }) }
-		tbl7.SilentAimState.Circle = tbl6.Frame:Clone()
-		tbl7.SilentAimState.Circle.Name = "SilentAimFOV"
-		tbl7.SilentAimState.Circle.Position = UDim2.fromScale(0.5, 0.5)
-		tbl7.SilentAimState.Circle.Parent = tbl6.Gui
-
-		for _, v22 in ipairs(tbl7.PlayerList) do
-			tbl12.TrackSilentAimPlayer(v22)
-		end
-
-		lib:GiveSignal(Players.PlayerAdded:Connect(tbl12.TrackSilentAimPlayer))
-
-		lib:GiveSignal(Players.PlayerRemoving:Connect(function(player)
-			tbl7.SilentAimState.Players[player] = nil
-		end))
 
 		TextChatService.OnIncomingMessage = function(arg)
 			if flag11 then
@@ -35626,7 +34927,14 @@ Escape Timer: %*]]
 			RebuildFrames = 5,
 			MaxCandidates = 5,
 			PassChecked = false,
+			LastRedirect = 0,
+			RedirectWindow = 1,
+			MoveSpeed = 40,
+			MoveTime = 0.3,
+			Moving = false,
 		}
+
+		tbl7.CombatSilentAim = silentAim
 
 		silentAim.Tune = function()
 			local now = os.clock()
@@ -35787,6 +35095,44 @@ Escape Timer: %*]]
 			end
 		end
 
+		silentAim.OnGrab = function()
+			if not silentAim.Enabled or flag11 or silentAim.Moving then
+				return
+			end
+
+			if os.clock() - silentAim.LastRedirect > silentAim.RedirectWindow then
+				return
+			end
+
+			local _, root, humanoid = tbl12.Char()
+
+			if not (root and humanoid and humanoid.Health > 0) then
+				return
+			end
+
+			local look = root.CFrame.LookVector
+			local direction = Vector3.new(look.X, 0, look.Z)
+
+			if direction.Magnitude < 0.1 then
+				return
+			end
+
+			direction = direction.Unit
+			silentAim.Moving = true
+
+			task.spawn(function()
+				local finish = os.clock() + silentAim.MoveTime
+
+				while os.clock() < finish and not flag11 and silentAim.Enabled and root.Parent do
+					local velocity = root.AssemblyLinearVelocity
+					root.AssemblyLinearVelocity = Vector3.new(direction.X * silentAim.MoveSpeed, velocity.Y, direction.Z * silentAim.MoveSpeed)
+					RunService.Heartbeat:Wait()
+				end
+
+				silentAim.Moving = false
+			end)
+		end
+
 		silentAim.Hook = function()
 			if silentAim.Patch or type(hookmetamethod) ~= "function" or type(getnamecallmethod) ~= "function" then
 				return
@@ -35807,6 +35153,7 @@ Escape Timer: %*]]
 
 					if typeof(arguments[1]) == "Vector3" then
 						arguments[2] = (silentAim.Target - arguments[1]).Unit * silentAim.AimDistance
+						silentAim.LastRedirect = os.clock()
 
 						return patch.Original(self, table.unpack(arguments, 1, arguments.n))
 					end
@@ -35890,6 +35237,7 @@ Escape Timer: %*]]
 		lib:OnUnload(function()
 			silentAim.Enabled = false
 			silentAim.Target = nil
+			tbl7.CombatSilentAim = nil
 			tbl12.SetRuntimeConnection("CombatSilentAim", RunService.RenderStepped, false)
 			pcall(silentAim.Unhook)
 		end)
@@ -41316,270 +40664,6 @@ Escape Timer: %*]]
 	end
 
 	do
-		local v20 = tbl15.Misc:AddRightGroupbox("Aim Assist", "crosshair")
-
-		v20:AddToggle("AimbotToggle", {
-			Text = "Toggle",
-			Default = false,
-			Tooltip = "Aims for you smoothly",
-			Callback = function(aimbotEnabled)
-				tbl7.AimSettings.AimbotEnabled = aimbotEnabled
-				tbl12.UpdateAimConnection()
-			end,
-		})
-
-		v20:AddDivider("Configuration")
-
-		v20:AddDropdown("TargetPartDD", {
-			Values = { "Torso", "Head", "Left Arm", "Right Arm", "Right Leg", "Left Leg" },
-			Text = "Target Part",
-			Default = "Head",
-			Callback = function(targetPart)
-				tbl7.AimSettings.TargetPart = targetPart
-			end,
-		})
-
-		v20:AddToggle("AlwaysOnToggleAB", {
-			Text = "Always On",
-			Default = lib.IsMobile,
-			Tooltip = "Aimbot is always on instead of being on-bind",
-			Callback = function(arg)
-				tbl7.AimSettings.AlwaysOn = lib.IsMobile or arg
-			end,
-		})
-
-		if lib.IsMobile then
-			toggles.AlwaysOnToggleAB:SetDisabled(true)
-		end
-
-		v20:AddToggle("FovCircle", {
-			Text = "FOV Circle",
-			Default = false,
-			Tooltip = "Enables a circle of where the aim will be working",
-			Callback = function(fovEnabled)
-				tbl7.AimSettings.FOVEnabled = fovEnabled
-				tbl12.UpdateAimConnection()
-			end,
-		}):AddColorPicker("FovCircColor", {
-			Default = Color3.new(1, 1, 1),
-			Title = "Circle Color",
-			Callback = function(color)
-				tbl6.Stroke.Color = color
-			end,
-		})
-
-		v20:AddSlider("AimDistance", {
-			Text = "Distance",
-			Default = 10,
-			Min = 10,
-			Max = 150,
-			Rounding = 0,
-			Compact = true,
-			Suffix = " studs",
-			Callback = function(saDist)
-				tbl7.AimSettings.SADist = saDist
-			end,
-		})
-
-		v20:AddSlider("AimSmoothness", {
-			Text = "Smoothness",
-			Default = 0.15,
-			Min = 0,
-			Max = 1,
-			Rounding = 2,
-			Compact = true,
-			Callback = function(smoothness)
-				tbl7.AimSettings.Smoothness = smoothness
-			end,
-		})
-
-		v20:AddSlider("FOVSize", {
-			Text = "FOV Radius",
-			Default = 150,
-			Min = 10,
-			Max = 1000,
-			Rounding = 0,
-			Compact = true,
-			Callback = function(fovRadius)
-				tbl7.AimSettings.FOVRadius = fovRadius
-			end,
-		})
-	end
-
-	do
-		local Triggerbot = tbl15.Misc:AddLeftGroupbox("Triggerbot", "mouse-left")
-
-		Triggerbot:AddToggle("TriggerToggle", {
-			Text = "Toggle",
-			Default = false,
-			Tooltip = "Clicks when you are aiming at a target",
-			Callback = function(triggerbotEnabled)
-				local aimSettings = tbl7.AimSettings
-
-				if aimSettings.TriggerbotEnabled ~= triggerbotEnabled then
-					aimSettings.TriggerVersion = aimSettings.TriggerVersion + 1
-				end
-
-				aimSettings.TriggerbotEnabled = triggerbotEnabled
-				tbl12.UpdateAimConnection()
-			end,
-		})
-
-		Triggerbot:AddDivider("Configuration")
-
-		Triggerbot:AddSlider("TriggerDelay", {
-			Text = "Delay",
-			Default = 0,
-			Min = 0,
-			Max = 1,
-			Suffix = " seconds",
-			Rounding = 2,
-			Compact = true,
-			Callback = function(triggerDelay)
-				tbl7.AimSettings.TriggerDelay = triggerDelay
-			end,
-		})
-
-		Triggerbot:AddSlider("TriggerDistance", {
-			Text = "Distance",
-			Default = 33,
-			Min = 1,
-			Max = 40,
-			Rounding = 0,
-			Compact = true,
-			Suffix = " studs",
-			Callback = function(triggerDist)
-				tbl7.AimSettings.TriggerDist = triggerDist
-			end,
-		})
-
-		Triggerbot:AddSlider("TriggerCooldown", {
-			Text = "Cooldown",
-			Default = 0,
-			Min = 0,
-			Max = 2,
-			Rounding = 2,
-			Compact = true,
-			Suffix = " seconds",
-			Callback = function(triggerCooldown)
-				tbl7.AimSettings.TriggerCooldown = triggerCooldown
-			end,
-		})
-
-		local TriggerTricks = Triggerbot:AddToggle("TriggerTricks", {
-			Text = "Camera Tricks",
-			Default = false,
-			Callback = function(triggerTricks)
-				tbl7.AimSettings.TriggerTricks = triggerTricks
-			end,
-		})
-
-		local v20 = Triggerbot:AddDependencyBox()
-		v20:SetupDependencies({ { TriggerTricks, true } })
-
-		v20:AddDropdown("TriggerTrick", {
-			Text = "Trick",
-			Values = { "360 Spin", "720 Spin", "180 Flick" },
-			Default = "360 Spin",
-			Multi = false,
-			Callback = function(triggerTrick)
-				tbl7.AimSettings.TriggerTrick = triggerTrick
-			end,
-		})
-
-		v20:AddSlider("TriggerTrickSpeed", {
-			Text = "Trick Speed",
-			Default = 1,
-			Min = 0.75,
-			Max = 2,
-			Rounding = 2,
-			Compact = true,
-			Suffix = "x",
-			Callback = function(triggerTrickSpeed)
-				tbl7.AimSettings.TriggerTrickSpeed = triggerTrickSpeed
-			end,
-		})
-	end
-
-	do
-		local v20 = tbl15.Misc:AddRightGroupbox("Silent Aim", "crosshair")
-
-		v20:AddToggle("SilentAim", {
-			Text = "Silent Aim",
-			Default = false,
-			Tooltip = "Uses the game's raycast when supported, with a hitbox fallback",
-			Callback = tbl12.SetSilentAim,
-		})
-
-		v20:AddToggle("SilentAimIgnoreWhitelist", {
-			Text = "Ignore Whitelisted",
-			Default = true,
-			Callback = function(silentAimIgnoreWhitelist)
-				tbl8.SilentAimIgnoreWhitelist = silentAimIgnoreWhitelist
-				tbl12.RefreshSilentAim()
-			end,
-		})
-
-		local SilentAimTargetsOnly = v20:AddToggle("SilentAimTargetsOnly", {
-			Text = "Selected Targets Only",
-			Default = false,
-			Callback = function(silentAimTargetsOnly)
-				tbl8.SilentAimTargetsOnly = silentAimTargetsOnly
-				tbl12.RefreshSilentAim()
-			end,
-		})
-
-		local v21 = v20:AddDependencyBox()
-		v21:SetupDependencies({ { SilentAimTargetsOnly, true } })
-		tbl12.CreatePlayerDropdown(v21, "SilentAimTargets", tbl7.SelectedSilentAimPlayers, true, false, tbl12.RefreshSilentAim)
-
-		v20:AddToggle("SilentAimFOV", {
-			Text = "Show FOV Circle",
-			Default = false,
-			Callback = function(silentAimFOV)
-				tbl8.SilentAimFOV = silentAimFOV
-				tbl12.UpdateSilentAimFOV()
-			end,
-		})
-
-		v20:AddLabel("SilentAimMethod", { Text = "Method: Hitbox (Compatibility)", DoesWrap = true })
-
-		v20:AddSlider("SilentAimRadius", {
-			Text = "Aim Radius",
-			Default = tbl9.SAIMRadius,
-			Min = 10,
-			Max =
-				0,
-			Rounding = 0,
-			Compact = true,
-			Suffix = " px",
-			Callback = function(saimRadius)
-				tbl9.SAIMRadius = saimRadius
-				tbl12.UpdateSilentAimFOV()
-			end,
-		})
-
-		v20:AddSlider("SilentAimSize", {
-			Text = "Hitbox Size",
-			Default = 10,
-			Min = 1,
-			Max = 30,
-			Rounding = 0,
-			Compact = true,
-			Suffix = " studs",
-			Callback = function(saimHitbox)
-				tbl9.SAIMHitbox = saimHitbox
-
-				if tbl8.SilentAim then
-					tbl12.RefreshSilentAim()
-				end
-			end,
-		})
-	end
-
-	tbl12.SetSilentAim(tbl8.SilentAim)
-
-	do
 		local Plots = tbl15.Misc:AddLeftGroupbox("Plots", "table")
 
 		Plots:AddDropdown("SelectedPlotDropdown", {
@@ -41748,12 +40832,6 @@ Escape Timer: %*]]
 		local Whitelist = tbl15.Lists:AddLeftGroupbox("Whitelist", "shield-check")
 		local v20 = tbl12.CreatePlayerDropdown(Whitelist, "Whitelist", tbl7.Whitelisted)
 
-		v20:OnChanged(function()
-			if tbl8.SilentAim then
-				tbl12.RefreshSilentAim()
-			end
-		end)
-
 		local tbl16 = {}
 		local friendStatusChanged = nil
 
@@ -41850,10 +40928,6 @@ Escape Timer: %*]]
 			Tooltip = "Prevents server-wide features from affecting people in the list above",
 			Callback = function(whitelistedBypass)
 				tbl8.WhitelistedBypass = whitelistedBypass
-
-				if tbl8.SilentAim then
-					tbl12.RefreshSilentAim()
-				end
 			end,
 		})
 	end
@@ -41865,11 +40939,6 @@ Escape Timer: %*]]
 		local Immunity = tbl15.Lists:AddRightGroupbox("Immunity", "shield-user")
 		local immunityDropdown = tbl12.CreatePlayerDropdown(Immunity, "Immunity", tbl7.ImmunePlayers)
 
-		immunityDropdown:OnChanged(function()
-			if tbl8.SilentAim then
-				tbl12.RefreshSilentAim()
-			end
-		end)
 		Immunity:AddDivider("Modes")
 
 		Immunity:AddToggle("ImmunityAGToggle", {
@@ -42429,11 +41498,6 @@ Rejoined: %rejoinedPlayer%, %listCount%]],
 	lib3:BuildConfigSection(tbl15.Settings)
 	lib3:LoadAutoloadConfig()
 
-	if lib.IsMobile then
-		toggles.AlwaysOnToggleAB:SetValue(true)
-		toggles.AlwaysOnToggleAB:SetDisabled(true)
-	end
-
 	task.spawn(function()
 		lib2:Start()
 	end)
@@ -42566,7 +41630,6 @@ Rejoined: %rejoinedPlayer%, %listCount%]],
 		flag11 = true
 		pcall(tbl12.SetGucciAntiGrab, false)
 		pcall(tbl12.CancelServerHop)
-		pcall(tbl12.SetSilentAim, false)
 		pcall(tbl12.SetDesync, false)
 		pcall(tbl12.SetLookFigures, false)
 		pcall(tbl12.SetAntiShurikenLag, false)
