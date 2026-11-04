@@ -5,5 +5,5 @@ A script for [Fling Things and People](https://www.roblox.com/games/6961824067/F
 ## Loadstring
 
 ```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/undeited/Moonlight/refs/heads/main/main.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/undeited/moonlight/refs/heads/main/main.lua"))()
 ```
