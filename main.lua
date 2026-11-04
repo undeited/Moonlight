@@ -35860,7 +35860,7 @@ Escape Timer: %*]]
 								return
 							end
 
-							if not (tbl12.IsPartOwner(root) or tbl12.SNO(root)) then
+							if not tbl12.SNO(root) then
 								return
 							end
 
