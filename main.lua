@@ -38727,6 +38727,47 @@ Escape Timer: %*]]
 			end)
 		end
 
+		local function revertViewCamera()
+			restoreOwnCamera()
+
+			if savedCamera then
+				local saved = savedCamera
+				savedCamera = nil
+
+				pcall(function()
+					localPlayer.CameraMode = saved.Mode
+					localPlayer.CameraMaxZoomDistance = saved.Max
+					localPlayer.CameraMinZoomDistance = saved.Min
+				end)
+			end
+		end
+
+		local function applyViewCamera(token)
+			if not savedCamera then
+				pcall(function()
+					savedCamera = {
+						Mode = localPlayer.CameraMode,
+						Max = localPlayer.CameraMaxZoomDistance,
+						Min = localPlayer.CameraMinZoomDistance,
+					}
+				end)
+			end
+
+			pcall(function()
+				localPlayer.CameraMode = Enum.CameraMode.Classic
+				localPlayer.CameraMaxZoomDistance = math.huge
+				localPlayer.CameraMinZoomDistance = 20
+			end)
+
+			task.delay(0.15, function()
+				if viewToken == token and savedCamera then
+					pcall(function()
+						localPlayer.CameraMinZoomDistance = 0.5
+					end)
+				end
+			end)
+		end
+
 		ViewPlayerBox:AddToggle("ViewPlayerToggle", {
 			Text = "View Player",
 			Default = false,
@@ -38735,46 +38776,16 @@ Escape Timer: %*]]
 				local token = viewToken
 
 				if not enabled then
-					restoreOwnCamera()
-
 					if savedCamera then
-						pcall(function()
-							localPlayer.CameraMode = savedCamera.Mode
-							localPlayer.CameraMaxZoomDistance = savedCamera.Max
-							localPlayer.CameraMinZoomDistance = savedCamera.Min
-						end)
-
-						savedCamera = nil
+						revertViewCamera()
 					end
 
 					return
 				end
 
-				if not savedCamera then
-					pcall(function()
-						savedCamera = {
-							Mode = localPlayer.CameraMode,
-							Max = localPlayer.CameraMaxZoomDistance,
-							Min = localPlayer.CameraMinZoomDistance,
-						}
-					end)
-				end
-
-				pcall(function()
-					localPlayer.CameraMode = Enum.CameraMode.Classic
-					localPlayer.CameraMaxZoomDistance = math.huge
-					localPlayer.CameraMinZoomDistance = 20
-				end)
-
-				task.delay(0.15, function()
-					if viewToken == token then
-						pcall(function()
-							localPlayer.CameraMinZoomDistance = 0.5
-						end)
-					end
-				end)
-
 				task.spawn(function()
+					local active = false
+
 					while viewToken == token and not flag11 do
 						local target = options.ViewPlayerDropdown and options.ViewPlayerDropdown.Value
 						local humanoid
@@ -38785,9 +38796,15 @@ Escape Timer: %*]]
 						end
 
 						if humanoid then
+							if not active then
+								active = true
+								applyViewCamera(token)
+							end
+
 							currentCamera.CameraSubject = humanoid
-						else
-							restoreOwnCamera()
+						elseif active then
+							active = false
+							revertViewCamera()
 						end
 
 						task.wait()
