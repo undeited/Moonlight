@@ -15549,7 +15549,10 @@ function SaveManager:LoadJSON(Content: string)
 		local Position = SpecialValueParser.UDim2.Decode(KeybindFrameData.position)
 
 		Library.KeybindFrame.Visible = IsVisible
-		Library.KeybindFrame.Position = Position or Library.KeybindFrame.Position
+
+		if not SaveManager.AutoLayout then
+			Library.KeybindFrame.Position = Position or Library.KeybindFrame.Position
+		end
 
 		local KeybindMenuToggle = Library.Options and Library.Options.KeybindMenuOpen
 		if KeybindMenuToggle then
@@ -34944,9 +34947,7 @@ Escape Timer: %*]]
 			MaxCandidates = 5,
 			PassChecked = false,
 			LastGrab = 0,
-			MoveTime = 0.15,
 			CameraTime = 0.25,
-			StopDistance = 3,
 			Moving = false,
 		}
 
@@ -35116,10 +35117,10 @@ Escape Timer: %*]]
 				return
 			end
 
-			local _, root, humanoid = tbl12.Char()
+			local _, _, humanoid = tbl12.Char()
 			local _, targetRoot, targetHumanoid = tbl12.Char(player)
 
-			if not (root and humanoid and humanoid.Health > 0 and targetRoot and targetHumanoid and targetHumanoid.Health > 0) then
+			if not (humanoid and humanoid.Health > 0 and targetRoot and targetHumanoid and targetHumanoid.Health > 0) then
 				return
 			end
 
@@ -35135,41 +35136,16 @@ Escape Timer: %*]]
 
 				pcall(RunService.UnbindFromRenderStep, RunService, bindName)
 
-				RunService:BindToRenderStep(bindName, Enum.RenderPriority.Camera.Value + 1, function()
+				pcall(RunService.BindToRenderStep, RunService, bindName, Enum.RenderPriority.Camera.Value + 1, function()
 					local camera = workspace.CurrentCamera
 
-					if camera and targetRoot.Parent then
+					if camera and targetRoot.Parent and silentAim.Enabled and not flag11 then
 						camera.CFrame = CFrame.lookAt(camera.CFrame.Position, targetRoot.Position)
 					end
 				end)
 
 				task.wait(silentAim.CameraTime)
 				pcall(RunService.UnbindFromRenderStep, RunService, bindName)
-			end)
-
-			task.spawn(function()
-				pcall(function()
-					local start = root.Position
-					local elapsed = 0
-
-					while elapsed < silentAim.MoveTime and not flag11 and silentAim.Enabled and root.Parent and targetRoot.Parent do
-						elapsed += RunService.Heartbeat:Wait()
-
-						local targetPosition = targetRoot.Position
-						local flat = Vector3.new(targetPosition.X - start.X, 0, targetPosition.Z - start.Z)
-
-						if flat.Magnitude <= silentAim.StopDistance then
-							break
-						end
-
-						local destination = Vector3.new(targetPosition.X, targetPosition.Y, targetPosition.Z) - flat.Unit * silentAim.StopDistance
-						local position = start:Lerp(destination, math.clamp(elapsed / silentAim.MoveTime, 0, 1))
-
-						root.CFrame = CFrame.lookAt(position, Vector3.new(targetPosition.X, position.Y, targetPosition.Z))
-						root.AssemblyLinearVelocity = Vector3.zero
-					end
-				end)
-
 				silentAim.Moving = false
 			end)
 		end
@@ -35246,7 +35222,7 @@ Escape Timer: %*]]
 		SilentAimToggle = SilentAimGroup:AddToggle("CombatSilentAim", {
 			Text = "Silent Aim",
 			Default = false,
-			Tooltip = "Redirects the game's raycasts toward the nearest player in line of sight",
+			Tooltip = "Redirects the game's raycasts toward the nearest player in line of sight and snaps your camera onto the player you grab",
 			Disabled = not compat.IsSupported("Raycast Silent Aim"),
 			DisabledTooltip = "Your executor doesn't support: " .. compat.MissingText("Raycast Silent Aim"),
 			Callback = function(enabled)
@@ -38070,10 +38046,90 @@ Escape Timer: %*]]
 				local ownFolder = workspace:FindFirstChild(localPlayer.Name .. "SpawnedInToys")
 				local toys = {}
 				local legacy = {}
+				local protectedNames = {}
+
+				if tbl8.AntiKick == true then
+					for _, name in ipairs({
+						"NinjaShuriken",
+						"ShurikenRSC",
+						"FoodHamburger",
+						"InstrumentDrumBongos",
+						"InstrumentBrassTrumpet",
+						"InstrumentBrassBugle",
+						"InstrumentVoiceMicrophone",
+						"InstrumentWoodwindOcarina",
+						"InstrumentGuitarUkulele",
+						"InstrumentGuitarLyre",
+						"InstrumentGuitarBanjo",
+						"InstrumentGuitarAcoustic",
+						"CupMugBrown",
+						"CupMugWhite",
+						"FoodBanana",
+						"FoodBread",
+						"FoodBroccoli",
+						"FoodCakePink",
+						"FoodCoconut",
+						"FoodDippyEgg",
+						"FoodDonut",
+						"FoodFrenchFries",
+						"FoodHotdog",
+						"FoodMayonnaise",
+						"FoodMeatStick",
+						"FoodMushroomPoison",
+						"FoodPizzaCheese",
+						"FoodPizzaPepperoni",
+						"FoodSodaCan",
+						"PoopPile",
+						"PoopPileSparkle",
+					}) do
+						protectedNames[name] = true
+					end
+				end
+
+				if tbl8.AntiGrab == true then
+					for _, name in ipairs({ "CreatureBlobman", "TractorGreen", "Train", "SantaSleigh" }) do
+						protectedNames[name] = true
+					end
+				end
+
+				local hasProtection = next(protectedNames) ~= nil
+				local protectedPrefixes = tbl8.AntiGrab == true and { "Tractor", "Train", "Sleigh", "SantaSleigh" } or {}
+
+				local function isProtectedName(name)
+					if protectedNames[name] then
+						return true
+					end
+
+					for _, prefix in ipairs(protectedPrefixes) do
+						if string.sub(name, 1, #prefix) == prefix then
+							return true
+						end
+					end
+
+					return false
+				end
+
+				local function isProtected(object)
+					if not hasProtection then
+						return false
+					end
+
+					local current = object
+
+					while current and current ~= ownFolder and current ~= workspace do
+						if isProtectedName(current.Name) then
+							return true
+						end
+
+						current = current.Parent
+					end
+
+					return false
+				end
 
 				if ownFolder then
 					for _, object in ipairs(ownFolder:GetDescendants()) do
-						if object:IsA("Model") then
+						if object:IsA("Model") and not isProtected(object) then
 							toys[#toys + 1] = object
 						end
 					end
@@ -38082,7 +38138,7 @@ Escape Timer: %*]]
 				local _, ownPlotFolder = tbl12.GetInventory(localPlayer)
 				if ownPlotFolder then
 					for _, child in pairs(ownPlotFolder:GetChildren()) do
-						if child:IsA("Model") then
+						if child:IsA("Model") and not isProtected(child) then
 							legacy[#legacy + 1] = child
 						end
 					end
@@ -41441,25 +41497,42 @@ Rejoined: %rejoinedPlayer%, %listCount%]],
 			return tbl16
 		end
 
-		local function fn27(arg)
+		local function fn27(arg, mode)
 			if typeof(arg) ~= "table" then
 				return
 			end
-			local mainFrame = v19.MainFrame
-			local v20 = fn22(arg.Size)
-			local v21 = fn22(arg.Position)
-			fn25(mainFrame, v20)
-			fn24(mainFrame, arg.ScreenPosition, v21)
-			local n36
 
-			if typeof(arg.SidebarScale) == "number" then
-				n36 = mainFrame.Size.X.Offset * arg.SidebarScale
-			else
-				n36 = arg.SidebarWidth
+			if mode ~= "buttons" then
+				local mainFrame = v19.MainFrame
+				local v20 = fn22(arg.Size)
+				local v21 = fn22(arg.Position)
+				fn25(mainFrame, v20)
+				fn24(mainFrame, arg.ScreenPosition, v21)
+				local n36
+
+				if typeof(arg.SidebarScale) == "number" then
+					n36 = mainFrame.Size.X.Offset * arg.SidebarScale
+				else
+					n36 = arg.SidebarWidth
+				end
+
+				if typeof(n36) == "number" then
+					v19:SetSidebarWidth(n36)
+				end
 			end
 
-			if typeof(n36) == "number" then
-				v19:SetSidebarWidth(n36)
+			if mode == "window" then
+				if typeof(arg.MobileButtons) == "table" then
+					for k, v23 in arg.MobileButtons do
+						local active = tbl7.ActiveDraggableButtons[k]
+
+						if typeof(v23) == "table" and active and active.Button then
+							fn24(active.Button, v23.ScreenPosition, fn22(v23.Position))
+						end
+					end
+				end
+
+				return
 			end
 
 			local tbl16 = {}
@@ -41487,8 +41560,11 @@ Rejoined: %rejoinedPlayer%, %listCount%]],
 			end
 		end
 
+		local autoLayout = type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function"
+
 		lib2:SetLibrary(lib)
 		lib3:SetLibrary(lib)
+		lib3.AutoLayout = autoLayout
 		local saveJSON = lib3.SaveJSON
 		local loadJSON = lib3.LoadJSON
 
@@ -41514,10 +41590,149 @@ Rejoined: %rejoinedPlayer%, %listCount%]],
 			local v20, v21 = loadJSON(arg, arg2)
 
 			if v20 and ok and typeof(result) == "table" and typeof(result.MoonlightUI) == "table" then
-				task.defer(fn27, result.MoonlightUI)
+				task.defer(fn27, result.MoonlightUI, autoLayout and "buttons" or nil)
 			end
 
 			return v20, v21
+		end
+
+		if autoLayout then
+			local layoutFolder = "Moonlight/FTAP"
+			local layoutPath = layoutFolder .. "/layout.json"
+			local running = true
+
+			local function captureLayout()
+				local data = fn26()
+				local keybindFrame = lib.KeybindFrame
+
+				if keybindFrame and keybindFrame.Parent then
+					data.KeybindPosition = fn21(keybindFrame.Position)
+					data.KeybindScreenPosition = fn23(keybindFrame)
+				end
+
+				return data
+			end
+
+			local function applyLayout(data)
+				fn27(data, "window")
+
+				local keybindFrame = lib.KeybindFrame
+
+				if keybindFrame and keybindFrame.Parent and typeof(data.KeybindScreenPosition) == "table" then
+					fn24(keybindFrame, data.KeybindScreenPosition, fn22(data.KeybindPosition))
+				end
+			end
+
+			local function readLayout()
+				local exists, found = pcall(isfile, layoutPath)
+
+				if not (exists and found) then
+					return nil
+				end
+
+				local readOk, content = pcall(readfile, layoutPath)
+
+				if not (readOk and typeof(content) == "string") then
+					return nil
+				end
+
+				local decodeOk, data = pcall(HttpService.JSONDecode, HttpService, content)
+
+				if decodeOk and typeof(data) == "table" then
+					return data
+				end
+
+				return nil
+			end
+
+			local function stable(value)
+				if type(value) == "table" then
+					local keys = {}
+
+					for key in value do
+						keys[#keys + 1] = key
+					end
+
+					table.sort(keys, function(a, b)
+						return tostring(a) < tostring(b)
+					end)
+
+					local parts = {}
+
+					for _, key in keys do
+						parts[#parts + 1] = tostring(key) .. "=" .. stable(value[key])
+					end
+
+					return "{" .. table.concat(parts, ",") .. "}"
+				end
+
+				if type(value) == "number" then
+					return string.format("%.3f", value)
+				end
+
+				return tostring(value)
+			end
+
+			local function ensureFolders()
+				if type(isfolder) ~= "function" or type(makefolder) ~= "function" then
+					return
+				end
+
+				for _, path in { "Moonlight", layoutFolder } do
+					local ok, exists = pcall(isfolder, path)
+
+					if ok and not exists then
+						pcall(makefolder, path)
+					end
+				end
+			end
+
+			lib:OnUnload(function()
+				running = false
+			end)
+
+			task.spawn(function()
+				task.wait(2)
+
+				local saved = readLayout()
+
+				if saved then
+					pcall(applyLayout, saved)
+					task.wait(0.5)
+				end
+
+				local startOk, startData = pcall(captureLayout)
+				local lastSignature = startOk and stable(startData) or ""
+				local pendingSignature
+
+				while running do
+					task.wait(0.5)
+
+					local ok, data = pcall(captureLayout)
+
+					if ok and typeof(data) == "table" then
+						local signature = stable(data)
+
+						if signature == lastSignature then
+							pendingSignature = nil
+						elseif signature ~= pendingSignature then
+							pendingSignature = signature
+						else
+							pendingSignature = nil
+
+							local encodeOk, encoded = pcall(HttpService.JSONEncode, HttpService, data)
+
+							if encodeOk then
+								ensureFolders()
+
+								if pcall(writefile, layoutPath, encoded) then
+									lastSignature = signature
+								end
+							end
+						end
+					end
+				end
+			end)
 		end
 	end
 
